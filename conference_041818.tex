@@ -122,7 +122,7 @@ Our algorithm consists of two main steps. The first step involves finding out al
 % 9. We perform a division based on the amount of work which uses e_index but do not mention it in this iteration.
 % 10. Read from sorted E and each thread will generate the combinations in the adjacency list of the particular u and write it out to a buffer using EPrimeSizeScan.
 % 11. Return the list of all possible combinations called EPrime.
-The graph is read in as an adjacency list. This is an edge representation of the graph where the 
+In order to perform set intersection, we need to first create a list of candidate edges that have to be inspected for closure $E'$. The graph is read in as an adjacency list $E$. Each element in the list $E$ is a tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer accounting for endianness of the architecture. The list $E$, is radix sorted using the double buffered tunable CUDA GPU implementation called CUBS\cite{b19}. The resultant sorted list will be sorted first by the leading vertex $u$ and incase of collisions it will be sorted by $v$ implicitly. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. The sorted $E$ is then divided up among $p$ threads where each thread processes a fixed number of elements $items_{thread}$. $items_{thread}$ is a tunable parameter throughout this implementation. In the next kernel we find the number of unique leading vertex $u$ values in each worker. This is nothing but the size of the first dimension of the adjacency list. This size is used to preallocate memory to store the arrays $index$, $degree$, $E'_{size}$. 
 
 \subsection{Set intersection using radix bucketing}
 % Radix sort count E and EPrime(E, EPrime, len_E, len_EPrime, triangleCount, depth):
@@ -153,6 +153,7 @@ The graph is read in as an adjacency list. This is an edge representation of the
 \bibitem{b15} Single-pass Parallel Prefix Scan with Decoupled Look-back, Duane Merrill, Michael Garland
 \bibitem{b16} V. J. Duvanenko, "Stable Hybrid N-bit-Radix Sort", Dr. Dobb's Journal, January 2010
 \bibitem{b17} J. Shun and K. Tangwongsan, “Multicore triangle computations without tuning,” in Data Engineering (ICDE), 2015 IEEE 31st International Conference on. IEEE, 2015, pp. 149–160.
-\bibitem{b17} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
+\bibitem{b18} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
+\bibitem{b19} https://nvlabs.github.io/cub/structcub_1_1_device_radix_sort.html
 \end{thebibliography}
 \end{document}
