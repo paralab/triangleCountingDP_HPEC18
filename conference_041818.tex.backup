@@ -1,0 +1,137 @@
+\documentclass[conference]{IEEEtran}
+% \IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Towards Triangle Counting on GPU using Stable Radix binning\\
+}
+
+\author{\IEEEauthorblockN{Nishith Tirpankar}
+\IEEEauthorblockA{\textit{School of Computing} \\
+\textit{University of Utah}\\
+Salt Lake City, USA \\
+tirpankar.n@utah.edu}
+\and
+\IEEEauthorblockN{Hari Sundar}
+\IEEEauthorblockA{\textit{School of Computing} \\
+\textit{University of Utah}\\
+Salt Lake City, USA \\
+hari@cs.utah.edu}
+% \and
+% \IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address}
+% \and
+% \IEEEauthorblockN{4\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address}
+% \and
+% \IEEEauthorblockN{5\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address}
+% \and
+% \IEEEauthorblockN{6\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address}
+}
+
+\maketitle
+
+\begin{abstract}
+This document is a model and instructions for \LaTeX.
+This and the IEEEtran.cls file define the components of your paper [title, text, heads, etc.]. *CRITICAL: Do Not Use Symbols, Special Characters, Footnotes, 
+or Math in Paper Title or Abstract.
+\end{abstract}
+
+\begin{IEEEkeywords}
+component, formatting, style, styling, insert
+\end{IEEEkeywords}
+
+\section{Introduction}
+\subsection{Graph algorithms overview}
+A number of data and network analytics questions on relational data can be posed as graph problems. For example, the transitivity or clustering coefficient tells us how clustered the nodes in a graph are. Clustered or small world networks having large value of clustering co-efficient have enhanced signal-propagation speed, synchronizability and computational power\cite{b1}. Nodes in sub-graphs with this property can be targetted for quick or low energy information disbursement. Another example involves finding the count and presence of certain structures in a graph. Identifying clusters of these patterns\cite{b2} or sub-graphs can indicate classes of predators in a food-web or interactions between sensors and effectors in a neural network\cite{b3}. A commonly occuring use case is of recommendations to connect with friends of friends in large social networks. It can be computed using the length of the path between two users\cite{b4}.
+\subsection{Triangle counting as an application}
+A k-truss is a maximal subgraph of a given graph such that each edge in it is contained in at least k-2 triangles. The k-truss in a graph is a sub-graph all the applications mentioned here can use. Triangles are the simplest subgraph in a graph. Counting the number of triangles in a graph is building block that can be used in finding the k-truss\cite{b5}. This makes triangle counting such a lucritive problem for the sub-graph isomorphism challenge\cite{b6}.
+\subsection{Different approaches - set intersection/Linear algebra/map reduce/approximation methods for triangle counting}
+Among the prominent methods for computing the count of triangles are ones using set intersection, linear algebra, map reduce and approximation methods. Set intersection algorithms \cite{b7} involve computing a set of all the possible edges that could generate triangles and counting the number of intersections with the original adjacency list. Innovations in the ordering of the members of the sets as well as ease of distribution of the work among multiple processes makes this class of algorithms highly performant\cite{b8} and ideal for implementation on shared memory systems. This class of algorithms is what inspired our work. Linear algebra approaches involve variantions of $\sum_{i,j}A^2\circ A$ where $A$ is the adjacency matrix\cite{b6}. One variantion involves splitting up the adjacency matrix into lower and upper triangular matrices not including the diagonal $A = L + U$. The product $B = L*U$ counts the number of paths of length 2 in the graph. Finding if the wedges close by performing a Hadamard product $C= A\circ B$ gives us the triangle count $\sum_{ij}(C)/2$\cite{b10, b9}. Map reduce approaches use frameworks such as Hadoop and distribute the adjacency lists among nodes arbitrarily. For a more detailed overview refer to \cite{b11,b12}. An interesting class of algorithms rely on wedge sampling to get an approximate count of the number of triangles. The work done in \cite{b13} shows an excellent use case that uses the birthday paradox to sample a set of wedges from the set of vertices and finding the approximate number of triangles by finding the number of closed wedges in this set.
+
+\subsection{Argument for improving performance by parallelizing graph algorithms for shared memory use with GPU and OpenMP}
+???NOT SURE what to write here???
+
+\subsection{Discrete algorithm RADIX BUCKETING for set intersection}
+The MSD radix bucketing algorithm is used in the fastest sorting algorithms\cite{b14}. This is due to the ease of splitting up the work among multiple workers with a low cost of communication between recursions. The stable MSD radix bucketing involves 3 main steps which are performed at each level of the recursion. 
+
+The first step - the count involves distributing the input list equally among the workers. Each worker finds the number of elements in the input data that belong to the power of two bucket for that level of recursion. The input list of size $n$ will be split up among $p$ workers such that each worker gets a chunk of size $n/p$ to process. This operation has a constant work complexity $O(n)$ since it involves masking the $d$ bits where $d = log(R)$ and $R$ is the power of two number of buckets for each recursion. Thus, at depth $dep$ of the recursion, the bucket to which an item $q$ in the input list will belong is given by:
+
+\begin{equation}
+(q \gg (2^{dep_{max}-dep}-(d-1)))\land(R-1) \label{bucketNum}
+\end{equation}
+
+The equation \ref{bucketNum} will result in counts for the $R$ buckets at each worker. The step has a time complexity of $O(n/p)$ assuming $p$ workers can perform the count simultaneously. The $pR$ counts need to be aggregated in order to facilitate the last step where $p$ is the number of workers which can be threads or processes. This is done in the second step of radix bucketing - prefix sum scan. The count is a $p \times R$ matrix where each row is the local count at each worker. The value in collumn $j$ corresponds to the count for the $j^{th}$ bucket. If the $p\times R$ matrix is converted into a single vector of size $1\times pR$ by concatenating all the rows and performing a prefix sum scan on this vector we get a vector of monotonically increasing index locations to the input array. Reverting the operation by converting the $1\times pR$ vector to a $p \times R$ matrix will give the resultant index locations each worker can write to. Let us call this matrix $M_{p\times R}$ This operation has a work complexity $O(pRlog(pR))$ with a time complexity defined by the Kogge-Stone or Hillis-Steele scan algorithms \cite{b14}. This enables us to perform a EREW(exclusive read, exclusive write) operations in the final step which is ideal for a shared memory GPU model.
+
+In the third step the individual workers will move the data from the input buffer to the output buffer. Each of the workers will access its chunk of $n/p$ elements in the input buffer. The workers will move each input element to the output buffer address pointer to by the $M[i, j]$ where $i$ is the worker number and $j$ is the bucket the element maps to as given by \ref{bucketNum}. After moving the element, the pointer value $M[i, j]$ has to be decremented. After the first worker has processed its $n/p$ moves, the first collumn of $M_{p\times R}$ will contain the pointers to the output buffer that contains $R$ bucketed lists. In order to bucket these lists the bucketing steps has to be performed with $dep=dep-1$ on each of the $R$ lists recursively. The recursion stops at $dep = dep_{max}$. Also, at each level the input and output buffers can be swapped to restrict the space requirement of the buffers to $2n$.
+
+This algorithm can be easily extended to perform a set intersection on two lists by recursing through them simultaneously.  Early termination of the recursion will occur when any of the lists has 0 elements. A hybrid approach which uses an algorithm like insertion sort when the size of the input list $n_{dep}$ is small i.e. $n_{dep}<100$ for the $n=10000$ has been shown to perform better\cite{b16}. Although we have not implemented this, an OrderedMerge as demonstrated in \cite{b18,b17} yields substantial improvements at the tail end of the recursion.
+
+\section{Background and Related work}
+\subsection{Parallel Graph algorithms}
+\subsection{GPU}
+\subsection{Linear algebra}
+\subsection{Graph}
+\subsection{Triangle counting}
+
+\section{Methods}
+\subsection{Simple Linear algebra approach as a motivation}
+The problem of finding the count of triangles can be reduced to counting all paths(walks) of length 2 between two vertices if there is a closure i.e. an edge between the two vertices. An element $A(i,j)$ in the square adjacency matrix defines the number of paths or the weight of an edge beween nodes $i$ and $j$. For an undirected unweighted graph the adjacency matrix elements are 0 or 1. We know that the $n^{th}$ power of an adjacency matrix $A^n$ gives us the number of walks $A^n(i,j)$ of length $n$ that exist between nodes $i$ and $j$. For $n=2$ the walks are paths if the diagonal of the adjacency matrix is 0. Thus, each element of $A^2$ defines the number of paths of length 2. Let $C$ denote the Hadamard product or elementwise product of this with the adjacency matrix $C=A^2\circ A$. An element of matrix $C(i,j)$ gives us he number of triangles edge $(i,j)$ is a part of. Hence, the sum of all the elements of this matrix gives us the total number of triangles in the graph. Each triangle is counted three times in the matrix $C$ - once for each edge. Also, in an undirected graph each edge is counted twice as $A(i,j)$ and $A(j,i)$ both indicating the same edge. This implies that $\sum_{ij}(C)$ counts each triangle $6$ times. The total number of triangles is given by equation \ref{numTriangles}:
+
+\begin{equation}
+ n_{T} = \sum_{ij}(C)/6 \label{numTriangles}
+\end{equation}
+
+Triangle counting using this method has a high work complexity and is viable only for graphs with dense adjacency matrices. Most graphs tend to have sparser adjacency matrices. We can reduce the work complexity by techniques such as using masked multiplication after LU decomposition\cite{b10}. The decomposition as well as the masked multiplication is computationally expensive since it uses a significant amount of communication between workers. We can reduce the amount of communication by using a set intersection approach.
+
+\subsection{Short summary of standard algorithms}
+Our algorithm consists of two main steps. The first step involves finding out all the possible combinations of wedges that exist in our graph. This is computed using the adjacency list representation of the graph. The result of this step is a list of edges which if present in the original graph verify the closure of the triangle. This step is the radix bucket based set intersection. The following sections describe these steps in detail.
+
+\subsection{Finding candidate closure edges $E'$}
+
+\subsection{Set intersection using radix bucketing}
+
+
+\begin{thebibliography}{00}
+\bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.
+\bibitem{b2} Adam Polak, “Counting Triangles in Large Graphs on GPU.“
+\bibitem{b3} Ron Milo, Shai Shen-Orr, Shalev Itzkovitz, Nadav Kashtan, Dmitri Chklovskii, Uri Alon, Network motifs: Simple building blocks of complex networks, Science 298 (2002) 824–827
+\bibitem{b4} ] Thomas Schank, Dorothea Wagner, Finding, counting and listing all triangles in large graphs, Technical report, Universität Karlsruhe, Fakultät für Informatik, 2005.
+\bibitem{b5} M. Bisson and M. Fatica, "Static graph challenge on GPU," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-8.
+\bibitem{b6} “Static Graph Challenge: Subgraph Isomorphism”, S. Samsi, V. Gadepally, M. Hurley, M. Jones, E. Kao, S. Mohindra, P. Monticciolo, A. Reuther, S. Smith, W. Song, D. Staheli, J. Kepner, IEEE High Performance Extreme Computing Conference (HPEC), 2017
+\bibitem{b7}  O. Green, P. Yalamanchili, and L.-M. Munguıa, “Fast triangle counting on the GPU,” in Proc. 4th Workshop Irregular Appl.: Archit. Algorithms, 2014, pp. 1–8. [Online]. Available: http://dx.doi.org/ 10.1109/IA3.2014.7
+\bibitem{b8} Static Graph Challenge on GPU, Mauro Bisson, Massimiliano Fatica
+\bibitem{b9} L. Wang, Y. Wang, C. Yang, and J. D. Owens, “A comparative study on exact triangle counting algorithms on the GPU,” in Proc. 1st High Performance Graph Process. Workshop, May 2016, pp. 1–8.
+\bibitem{b10} Azad, A. Buluc¸, and J. Gilbert, “Parallel triangle counting and enumeration using matrix algebra,” in Proc. IEEE Int. Parallel Distrib. Process. Symp. Workshop, 2015, pp. 804–811. [Online]. Available: http://dx.doi.org/10.1109/IPDPSW.2015.75
+\bibitem{b11} T. G. Kolda, A. Pinar, T. Plantenga, C. Seshadhri, and C. Task, “Counting triangles in massive graphs with mapReduce,” CoRR, 2013. [Online]. Available: http://arxiv.org/abs/1301.5887
+\bibitem{b12}  C. Seshadhri, A. Pinar, and T. G. Kolda, “Wedge sampling for computing clustering coefficients and triangle counts on large graphs,” Statistical Anal. Data Mining, vol. 7, no. 4, pp. 294–307, 2014. [Online]. Available: http://dx.doi.org/10.1002/sam.11224
+\bibitem{b13} M. Jha, C. Seshadhri, and A. Pinar, “A space-efficient streaming algorithm for estimating transitivity and triangle counts using the birthday paradox,” ACM Trans. Knowl. Discov. Data, vol. 9, no. 3, pp. 15:1–15:21, Feb. 2015. [Online]. Available: http://doi.acm. org/10.1145/2700395
+\bibitem{b14} V. J. Duvanenko, "Parallel In-Place Radix Sort Simplified", Dr. Dobb's Journal, January 2011
+\bibitem{b15} Single-pass Parallel Prefix Scan with Decoupled Look-back, Duane Merrill, Michael Garland
+\bibitem{b16} V. J. Duvanenko, "Stable Hybrid N-bit-Radix Sort", Dr. Dobb's Journal, January 2010
+\bibitem{b17} J. Shun and K. Tangwongsan, “Multicore triangle computations without tuning,” in Data Engineering (ICDE), 2015 IEEE 31st International Conference on. IEEE, 2015, pp. 149–160.
+\bibitem{b17} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
+\end{thebibliography}
+\end{document}
