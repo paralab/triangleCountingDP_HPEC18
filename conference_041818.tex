@@ -3,10 +3,15 @@
 % The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage[noend]{algpseudocode}
+
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
@@ -87,7 +92,7 @@ The equation \ref{bucketNum} will result in counts for the $R$ buckets at each w
 
 In the third step the individual workers will move the data from the input buffer to the output buffer. Each of the workers will access its chunk of $n/p$ elements in the input buffer. The workers will move each input element to the output buffer address pointer to by the $M[i, j]$ where $i$ is the worker number and $j$ is the bucket the element maps to as given by \ref{bucketNum}. After moving the element, the pointer value $M[i, j]$ has to be decremented. After the first worker has processed its $n/p$ moves, the first collumn of $M_{p\times R}$ will contain the pointers to the output buffer that contains $R$ bucketed lists. In order to bucket these lists the bucketing steps has to be performed with $dep=dep-1$ on each of the $R$ lists recursively. The recursion stops at $dep = dep_{max}$. Also, at each level the input and output buffers can be swapped to restrict the space requirement of the buffers to $2n$.
 
-This algorithm can be easily extended to perform a set intersection on two lists by recursing through them simultaneously.  Early termination of the recursion will occur when any of the lists has 0 elements. A hybrid approach which uses an algorithm like insertion sort when the size of the input list $n_{dep}$ is small i.e. $n_{dep}<100$ for the $n=10000$ has been shown to perform better\cite{b16}. Although we have not implemented this, an OrderedMerge as demonstrated in \cite{b18,b17} yields substantial improvements at the tail end of the recursion.
+This algorithm can be easily extended to perform a set intersection on two lists by recursing through them simultaneously.  Early termination of the recursion will occur when any of the lists has 0 elements. A hybrid approach which uses an algorithm like insertion sort when the size of the input list $n_{dep}$ is small i.e. $n_{dep}<100$ for the $n=10000$ has been shown to perform better\cite{b16}. Although we have not implemented this, an OrderedMerge as demonstrated in \cite{b18, b17} yields substantial improvements at the tail end of the recursion.
 
 \section{Background and Related work}
 \subsection{Parallel Graph algorithms}
@@ -107,22 +112,45 @@ The problem of finding the count of triangles can be reduced to counting all pat
 Triangle counting using this method has a high work complexity and is viable only for graphs with dense adjacency matrices. Most graphs tend to have sparser adjacency matrices. We can reduce the work complexity by techniques such as using masked multiplication after LU decomposition\cite{b10}. The decomposition as well as the masked multiplication is computationally expensive since it uses a significant amount of communication between workers. We can reduce the amount of communication by using a set intersection approach.
 
 \subsection{Short summary of standard algorithms}
-Our algorithm consists of two main steps. The first step involves finding out all the possible combinations of wedges that exist in our graph. This is computed using the adjacency list representation of the graph. The result of this step is a list of edges which if present in the original graph verify the closure of the triangle. This step is the radix bucket based set intersection. The following sections describe these steps in detail.
+Our algorithm consists of two main steps. The first step involves finding out all the possible combinations of wedges that exist in our graph. This is computed using the adjacency list representation of the graph. The result of this step is a list of edges which if present in the original graph verify the closure of the triangle. The next step is the radix bucket based set intersection. The following sections describe these steps in detail.
 
 \subsection{Finding candidate closure edges $E'$}
+While generating the set of candidate edges we have focussed on maintaining exclusive access to the input and output data as well as coalescing our reads and writes. On NVIDIA GPGPU architectures this ensures that the 
+\begin{algorithm}
+  \caption{Compute candidate edges for closure test.}
+  \begin{algorithmic}[1]
+    \Statex
+    \Function{Compute\_$E'$}{$E$}
+      \State $E$ $\gets$ RADIX\_SORT($E$) \Comment{\small $E(u, v)$ by $u$ first then $v$}
+      \State $cnt[p]$ $\gets$ PARALLEL\_COUNT($E$) \Comment{\small use transitions}
+      \State $E_{len}$ $\gets$ PARALLEL\_REDUCE($cnt[p]$)
+      \State ALLOCATE($E_{index}, E_{degree}, E'_{size}$) \Comment{\small size $E_{len}$}
+      \State $E_{index}$ $\gets$ PARALLEL\_OFFSETS($E$, $p$)
+      \State $E_{degree}$ $\gets$ PARALLEL\_DEGREE\_CALC($E_{index}$, $p$)
+      \State $E'_{size}$ $\gets$ PARALLEL\_SIZE\_CALC($E_{degree}$, $p$)
+      \State $E'_{size\_scan}$ $\gets$ INCLUSIVE\_SUM\_SCAN($E'_{size}$)
+      \State $E'$ $\gets$ PARALLEL\_GEN($E$, $E'_{size\_scan}$)
+      \State \Return{$E'$}
+    \EndFunction
+  \end{algorithmic}
+\end{algorithm}
 % Compute Eprime(Adjacency list E with each member being an ordered tuple of base type such as (u=int, v=int), ITEMS_PER_THREAD):
 % 1. Read in the adjacency list as a list of double precision type.
 % 2. Sort the adjacency list in place by u first and then v using cub:sortkey -> cite refs
 % 3. Divide sorted E into equal sized chunks based on the amount of work to be done by each thread.
 % 4. Find the length of the adjacency list. To do that basically find the number of unique u's in your chunk. In the next step we will add all the counts.
+
 % 5. Reduce sum the counts to find the length of adjacency list. Allocate arrays of size |Adjacency list| for index, degree, EPrimeSize.
+
 % 6. For the same chunks as in step 3 find the degree as well as the E array index. Also, in EPrimeSize array store the value d(d-1)/2 where d is degree at an index location.
+
 % 7. Each vertex in the adjacency list will produce deg(deg-1)/2 combinations that are stored in EPrimeSize. We have to generate the index locations at which we will write the outputs which will be EPrimeSizeScan.
 % 8. EPrimeSizeScan = Inclusive sum scan(EPrimeSize)
+
 % 9. We perform a division based on the amount of work which uses e_index but do not mention it in this iteration.
 % 10. Read from sorted E and each thread will generate the combinations in the adjacency list of the particular u and write it out to a buffer using EPrimeSizeScan.
 % 11. Return the list of all possible combinations called EPrime.
-The graph is read in as an adjacency list. This is an edge representation of the graph where the 
+
 
 \subsection{Set intersection using radix bucketing}
 % Radix sort count E and EPrime(E, EPrime, len_E, len_EPrime, triangleCount, depth):
@@ -133,7 +161,88 @@ The graph is read in as an adjacency list. This is an edge representation of the
 % 5. Prefix inclusive sum scan for both E and EPrime.
 % 6. Move the elements in E and EPrime to their respective buckets.
 % 7. Recurse for each bucket.
+\begin{figure}
+	\begin{tikzpicture}[scale=0.21, every node/.style={scale=0.9}]
+		
+	% \draw[gray, very thin] (0,0) grid +(8,8);
+	 	
 
+	\begin{scope}[shift={(0,0)}]
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4] (0,0) grid +(8,8);
+	\draw[step=2] (0,4) grid +(4,4);
+	\draw[step=2] (4,0) grid +(4,4);
+	\draw[step=1] (2,6) grid +(2,2);
+    
+	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
+	\node at (4.5,7.0) {\small $k_1$};
+	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
+	\node at (6,5.5) {\small $k_2$};
+	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
+	\node at (7,2.5) {\small $k_3$};
+	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
+	\node at (2.0,1.5) {\small $k_4$};
+	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
+	\node at (3.0,2.5) {\small $k_5$};
+	
+	\end{scope}	 	
+	
+	\begin{scope}[shift={(11,0)}]
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4,cpu4] (0,0) grid +(8,8);
+	
+	\node at (0.5,0.5) {\small $1$};
+	\node at (4.5,0.5) {\small $4$};
+	\node at (0.5,4.5) {\small $7$};
+	\node at (4.5,4.5) {\small $1$};
+		
+	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
+	\node at (4.5,7.0) {\small $k_1$};
+	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
+	\node at (6,5.5) {\small $k_2$};
+	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
+	\node at (7,2.5) {\small $k_3$};
+	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
+	\node at (2.0,1.5) {\small $k_4$};
+	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
+	\node at (3.0,2.5) {\small $k_5$};
+
+	\end{scope}
+
+	\begin{scope}[shift={(22,0)}]
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4,cpu4] (0,0) grid +(8,8);
+	\draw[step=2,cpu3] (0,4) grid +(4,4);
+	\draw[step=2,cpu3] (4,0) grid +(4,4);
+	\node at (0.5,0.5) {\small $1$};
+	
+	\node at (4.5,0.5) {\small $1$};
+	\node at (6.5,0.5) {\small $1$};
+	\node at (4.5,2.5) {\small $1$};
+	\node at (6.5,2.5) {\small $1$};
+
+	\node at (0.5,4.5) {\small $1$};
+	\node at (2.5,4.5) {\small $1$};
+	\node at (0.5,6.5) {\small $1$};
+	\node at (2.5,6.5) {\small $4$};
+
+	\node at (4.5,4.5) {\small $1$};	
+	
+   	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
+	\node at (4.5,7.0) {\small $k_1$};
+	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
+	\node at (6,5.5) {\small $k_2$};
+	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
+	\node at (7.5,2.5) {\small $k_3$};
+	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
+	\node at (2.0,1.5) {\small $k_4$};
+	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
+	\node at (3.0,2.5) {\small $k_5$};
+	\end{scope}
+	
+	\end{tikzpicture}
+\caption{\label{fig:sfcSearch}\small For a given ordered octree $\tau$  and a set of keys.}
+\end{figure}
 
 \begin{thebibliography}{00}
 \bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.
@@ -153,6 +262,7 @@ The graph is read in as an adjacency list. This is an edge representation of the
 \bibitem{b15} Single-pass Parallel Prefix Scan with Decoupled Look-back, Duane Merrill, Michael Garland
 \bibitem{b16} V. J. Duvanenko, "Stable Hybrid N-bit-Radix Sort", Dr. Dobb's Journal, January 2010
 \bibitem{b17} J. Shun and K. Tangwongsan, “Multicore triangle computations without tuning,” in Data Engineering (ICDE), 2015 IEEE 31st International Conference on. IEEE, 2015, pp. 149–160.
-\bibitem{b17} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
+\bibitem{b18} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
+
 \end{thebibliography}
 \end{document}
