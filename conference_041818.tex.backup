@@ -81,19 +81,98 @@ Among the prominent methods for computing the count of triangles are ones using 
 ???NOT SURE what to write here???
 
 \subsection{Discrete algorithm RADIX BUCKETING for set intersection}
-The MSD radix bucketing algorithm is used in the fastest sorting algorithms\cite{b14}. This is due to the ease of splitting up the work among multiple workers with a low cost of communication between recursions. The stable MSD radix bucketing involves 3 main steps which are performed at each level of the recursion. 
+Set intersection among two lists is an expensive operation if the lists are large. Consider the problem of finding the number of edges in a list $E'$ which are present in $E$. Each element of the list is an ordered integer tuple $(u,v)$. For a value $(u,v)$ in $E$ to be equal to a value $(u',v')$ in $E'$, each bit in the binary representation of $u$ must match $u'$ and each bit in $v$ must match $v'$. We use this idea to bucket the entire list one bit at a time. Figure \ref{fig_radix_bucketing} gives an example of how a recursive bucket traversal can be used to perform intersection.
 
-The first step - the count involves distributing the input list equally among the workers. Each worker finds the number of elements in the input data that belong to the power of two bucket for that level of recursion. The input list of size $n$ will be split up among $p$ workers such that each worker gets a chunk of size $n/p$ to process. This operation has a constant work complexity $O(n)$ since it involves masking the $d$ bits where $d = log(R)$ and $R$ is the power of two number of buckets for each recursion. Thus, at depth $dep$ of the recursion, the bucket to which an item $q$ in the input list will belong is given by:
+\begin{figure}
+	\begin{tikzpicture}[scale=0.3, every node/.style={scale=0.9}]
+	% \draw[gray, very thin] (0,0) grid +(8,8);
 
-\begin{equation}
-(q \gg (2^{dep_{max}-dep}-(d-1)))\land(R-1) \label{bucketNum}
-\end{equation}
+	\begin{scope}[shift={(0,0)}]
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4] (0,0) grid +(8,8);
+	\draw[step=2] (0,0) grid +(4,4);
+	\draw[step=2] (0,4) grid +(4,4);
+	\draw[step=1] (0,6) grid +(2,2);
+    
+	\fill[red!100] (0.5,6.5) rectangle +(0.2,0.2);
+	\node at (0.5, 5.6) {\small $E_1$};
+	\fill[red!100] (1.5,1.5) rectangle +(0.2,0.2);
+	\node at (1.4, 0.9) {\small $E_2$};
+	\fill[red!100] (6.5,5.5) rectangle +(0.2,0.2);
+	\node at (6.5,4.9) {\small $E_3$};
+	
+	\node at (4,-0.4) {\small $v$};
+	\node at (-0.4,4) {\small $u$};
+	\end{scope}	 	
+	
+	\begin{scope}[shift={(10,0)}]
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4] (0,0) grid +(8,8);
+	\draw[step=2] (0,0) grid +(4,4);
+	\draw[step=2] (0,4) grid +(4,4);
+	\draw[step=1] (0,6) grid +(2,2);
+    
+	\fill[blue!100] (0.6,6.6) circle (0.1);
+	\node at (0.5, 5.6) {\small $E'_1$};
+	\fill[blue!100] (2.5,1.5) circle (0.1);
+	\node at (2.5, 1) {\small $E'_2$};
+	\fill[blue!100] (6.5,1.5) circle (0.1);
+	\node at (6.7, 1.1) {\tiny $E'_3$};
+	\fill[blue!100] (5,2) circle (0.1);
+	\node at (5, 1.6) {\tiny $E'_4$};
+	\fill[blue!100] (6,1) circle (0.1);
+	\node at (6, 0.6) {\tiny $E'_5$};
+	\fill[blue!100] (7,3) circle (0.1);
+	\node at (7.2, 2.6) {\tiny $E'_6$};
+	\fill[blue!100] (4.5,3.5) circle (0.1);
+	\node at (4.6, 3.1) {\tiny $E'_7$};
+	\fill[blue!100] (6,2) circle (0.1);
+	\node at (6, 2.5) {\tiny $E'_8$};
+	\fill[blue!100] (1.5,7.5) circle (0.1);
+	\node at (2.5, 7.5) {\small $E'_9$};
+	
+	\node at (4,-0.4) {\small $v$};
+	\node at (-0.4,4) {\small $u$};
+	\end{scope}
 
-The equation \ref{bucketNum} will result in counts for the $R$ buckets at each worker. The step has a time complexity of $O(n/p)$ assuming $p$ workers can perform the count simultaneously. The $pR$ counts need to be aggregated in order to facilitate the last step where $p$ is the number of workers which can be threads or processes. This is done in the second step of radix bucketing - prefix sum scan. The count is a $p \times R$ matrix where each row is the local count at each worker. The value in collumn $j$ corresponds to the count for the $j^{th}$ bucket. If the $p\times R$ matrix is converted into a single vector of size $1\times pR$ by concatenating all the rows and performing a prefix sum scan on this vector we get a vector of monotonically increasing index locations to the input array. Reverting the operation by converting the $1\times pR$ vector to a $p \times R$ matrix will give the resultant index locations each worker can write to. Let us call this matrix $M_{p\times R}$ This operation has a work complexity $O(pRlog(pR))$ with a time complexity defined by the Kogge-Stone or Hillis-Steele scan algorithms \cite{b14}. This enables us to perform a EREW(exclusive read, exclusive write) operations in the final step which is ideal for a shared memory GPU model.
+	\begin{scope}[shift={(20,0)}]
+	\fill[gray!30] (0,0) rectangle +(8,8);
+	\fill[gray!50] (0,0) rectangle +(4,4);
+	\fill[gray!50] (0,4) rectangle +(4,4);
+	\fill[gray!70] (1,6) rectangle +(1,1);
+	\fill[gray!70] (1,7) rectangle +(1,1);
+	\fill[gray!70] (0,7) rectangle +(1,1);
+	\fill[green!80] (0,6) rectangle +(1,1);
+	
+	\draw (0,0) rectangle +(8,8);
+	\draw[step=4] (0,0) grid +(8,8);
+	\draw[step=2] (0,0) grid +(4,4);
+	\draw[step=2] (0,4) grid +(4,4);
+	\draw[step=1] (0,6) grid +(2,2);
+	
+	\node at (6,2) {\small $r_1$};
+	\node at (6,6) {\small $r_3$};
+	\node at (1,1) {\footnotesize $r_{00}$};
+	\node at (3,1) {\footnotesize $r_{01}$};
+	\node at (1,3) {\footnotesize $r_{02}$};
+	\node at (3,3) {\footnotesize $r_{03}$};
+	\node at (1,5) {\footnotesize $r_{20}$};
+	\node at (3,5) {\footnotesize $r_{21}$};	
+	\node at (3,7) {\footnotesize $r_{23}$};
+	\node[scale=0.6] at (0.5,6.5) {\tiny $r_{220}$};
+	\node[scale=0.6] at (1.5,6.5) {\tiny $r_{221}$};
+	\node[scale=0.6] at (0.5,7.5) {\tiny $r_{222}$};
+	\node[scale=0.6] at (1.5,7.5) {\tiny $r_{223}$};
+	
+	\node at (4,-0.4) {\small $v$};
+	\node at (-0.4,4) {\small $u$};
+	\end{scope}
+	
+	\end{tikzpicture}
+\caption{\label{fig_radix_bucketing}From left to right: Elements of edge list $E$ with the bucket traversal overlay; elements of edge list $E'$ with the bucket traversal overlay; bucket traversal with region labels.}
+\end{figure}
 
-In the third step the individual workers will move the data from the input buffer to the output buffer. Each of the workers will access its chunk of $n/p$ elements in the input buffer. The workers will move each input element to the output buffer address pointer to by the $M[i, j]$ where $i$ is the worker number and $j$ is the bucket the element maps to as given by \ref{bucketNum}. After moving the element, the pointer value $M[i, j]$ has to be decremented. After the first worker has processed its $n/p$ moves, the first collumn of $M_{p\times R}$ will contain the pointers to the output buffer that contains $R$ bucketed lists. In order to bucket these lists the bucketing steps has to be performed with $dep=dep-1$ on each of the $R$ lists recursively. The recursion stops at $dep = dep_{max}$. Also, at each level the input and output buffers can be swapped to restrict the space requirement of the buffers to $2n$.
-
-This algorithm can be easily extended to perform a set intersection on two lists by recursing through them simultaneously.  Early termination of the recursion will occur when any of the lists has 0 elements. A hybrid approach which uses an algorithm like insertion sort when the size of the input list $n_{dep}$ is small i.e. $n_{dep}<100$ for the $n=10000$ has been shown to perform better\cite{b16}. Although we have not implemented this, an OrderedMerge as demonstrated in \cite{b18, b17} yields substantial improvements at the tail end of the recursion.
+To perform bucketing, we first take the integer $u$ and mask the highest bit. The resultant value is concatenated with the masked highest bit of $v$. The resultant value is a number between 0 and 3. This lets us put each value in $E$ and $E'$ into the buckets $r_0$ through $r_3$ as shown in the last figure in figure \ref{fig_radix_bucketing}. From this point we will recursively compute intersections only if both $E$ and $E'$ have edges in the bucket. As shown in the first and second of figure \ref{fig_radix_bucketing} we can see that bucket $r_1$ in $E$ does not have any edges while bucket $r3$ in $E'$ does not have any edges. Hence, we do not need to recurse in these buckets at all. Now $r_1$ has edges $E'_3$ through $E'_8$ which do not need to be tested. We have eliminated the need to test 6 out of 8 edges in $E'$. This is a significant reduction in work. Also, $r_3$ is eliminated as a potential bucket for recursion in $E$ removing the need to test edge $E_3$. In the next level of recursion we eliminate buckets $r_{00}$ through $r_{03}$ as well as $r_{20}, r_{21}, r_{23}$. Recursing on $r_{22}$ further we see that
 
 \section{Background and Related work}
 \subsection{Parallel Graph algorithms}
@@ -171,7 +250,7 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
     \State $t\_cnt = 0$ 
     \State $b=2^d$ \Comment{\small $d=$ radix bits, $b=$ radix buckets}
     \Function{INTERSECT\_COUNT}{$E, E', t\_cnt, depth$}
-      \If{$|E|\eq 0 \lor |E'|\eq 0$ \label{recursion_term_empty}}
+      \If{$|E|=0 \land |E'|=0$} \label{recursion_term_empty}
 	\State \Return{}
       \EndIf
       \If{$depth \geq depth_{max}$ \label{recursion_term_dmax}}
@@ -184,8 +263,8 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
       \EndIf
       \State $E_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E$, $depth$) \label{par_cnt_e}
       \State $E'_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E'$, $depth$) \label{par_cnt_e_prime}
-      \State $E_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E_{cnt}^T)))$ \label{inc_sum_scan_e_cnt}
-      \State $E'_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E'_{cnt}^T)))$ \label{inc_sum_scan_e_prime_cnt}
+      \State $E_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E^T_{cnt})))$ \label{inc_sum_scan_e_cnt}
+      \State $E'_{cnt\_scan} \gets$ $vec^{-1}$(INC\_SUM\_SCAN$(vec(E'^T_{cnt}))$) \label{inc_sum_scan_e_prime_cnt}
       \ForAll{b}
 	\State $E_{buf}[b] \gets$ MOVE($E, E_{cnt\_scan}[b]$) \label{move_e_cnt_scan}
       \EndFor
@@ -193,7 +272,7 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
 	\State $E'_{buf}[b] \gets$ MOVE($E', E'_{cnt\_scan}[b]$) \label{move_e_prime_cnt_scan}
       \EndFor
       \ForAll{b}
-	\State INTERSECT\_COUNT($E_{buf}[b], E'_{buf}[b], t\_cnt, depth+1$)
+	\State INTERSECT\_COUNT($E_{buf}[b], E'_{buf}[b], t\_cnt, depth+1$) \label{recursion_call}
       \EndFor
     \EndFunction
   \end{algorithmic}
@@ -213,6 +292,7 @@ The steps in lines \ref{inc_sum_scan_e_cnt}, \ref{inc_sum_scan_e_prime_cnt} perf
 
 The last step before recursion is the data movement. In line \ref{move_e_cnt_scan} the edges in $E$ are moved based on the bucket they belong to the offsets pointed by $E_{cnt\_scan}$ in the output buffer $E_{buf}$. The move is done for $E'$ in line \ref{move_e_prime_cnt_scan}. This stable operation requires just two buffers of size $2\times (|E|+|E'|)$ since the input buffer at $depth$ can be used as the output buffer at recursion $depth+1$ and vice versa.
 
+Intersect\_count will be called recursively for each bucket with the corresponding data as shown in line \ref{recursion_call}. The pointer to a global memory $t\_cnt$ is also passed on. The recursive call is made to all the buckets simultaneously - the loop over all buckets has only been shown for clarity. Similarly, the loops in lines \ref{move_e_cnt_scan}, \ref{move_e_prime_cnt_scan} also run simultaneously.
 
 % Radix sort count E and EPrime(E, EPrime, len_E, len_EPrime, triangleCount, depth):
 % 1. If len_E or len_EPrime is 0 return.
@@ -224,88 +304,6 @@ The last step before recursion is the data movement. In line \ref{move_e_cnt_sca
 % 6. Move the elements in E and EPrime to their respective buckets.
 % 7. Recurse for each bucket.
 
-\begin{figure}
-	\begin{tikzpicture}[scale=0.21, every node/.style={scale=0.9}]
-		
-	% \draw[gray, very thin] (0,0) grid +(8,8);
-	 	
-
-	\begin{scope}[shift={(0,0)}]
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4] (0,0) grid +(8,8);
-	\draw[step=2] (0,4) grid +(4,4);
-	\draw[step=2] (4,0) grid +(4,4);
-	\draw[step=1] (2,6) grid +(2,2);
-    
-	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
-	\node at (4.5,7.0) {\small $k_1$};
-	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
-	\node at (6,5.5) {\small $k_2$};
-	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
-	\node at (7,2.5) {\small $k_3$};
-	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
-	\node at (2.0,1.5) {\small $k_4$};
-	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
-	\node at (3.0,2.5) {\small $k_5$};
-	
-	\end{scope}	 	
-	
-	\begin{scope}[shift={(11,0)}]
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4,cpu4] (0,0) grid +(8,8);
-	
-	\node at (0.5,0.5) {\small $1$};
-	\node at (4.5,0.5) {\small $4$};
-	\node at (0.5,4.5) {\small $7$};
-	\node at (4.5,4.5) {\small $1$};
-		
-	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
-	\node at (4.5,7.0) {\small $k_1$};
-	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
-	\node at (6,5.5) {\small $k_2$};
-	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
-	\node at (7,2.5) {\small $k_3$};
-	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
-	\node at (2.0,1.5) {\small $k_4$};
-	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
-	\node at (3.0,2.5) {\small $k_5$};
-
-	\end{scope}
-
-	\begin{scope}[shift={(22,0)}]
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4,cpu4] (0,0) grid +(8,8);
-	\draw[step=2,cpu3] (0,4) grid +(4,4);
-	\draw[step=2,cpu3] (4,0) grid +(4,4);
-	\node at (0.5,0.5) {\small $1$};
-	
-	\node at (4.5,0.5) {\small $1$};
-	\node at (6.5,0.5) {\small $1$};
-	\node at (4.5,2.5) {\small $1$};
-	\node at (6.5,2.5) {\small $1$};
-
-	\node at (0.5,4.5) {\small $1$};
-	\node at (2.5,4.5) {\small $1$};
-	\node at (0.5,6.5) {\small $1$};
-	\node at (2.5,6.5) {\small $4$};
-
-	\node at (4.5,4.5) {\small $1$};	
-	
-   	\draw[fill=red!60] (3.8,7.7) rectangle +(0.2,0.2);
-	\node at (4.5,7.0) {\small $k_1$};
-	\draw[fill=red!60] (6,6) rectangle +(0.2,0.2);
-	\node at (6,5.5) {\small $k_2$};
-	\draw[fill=red!60] (7,3) rectangle +(0.2,0.2);
-	\node at (7.5,2.5) {\small $k_3$};
-	\draw[fill=red!60] (2,2) rectangle +(0.2,0.2);
-	\node at (2.0,1.5) {\small $k_4$};
-	\draw[fill=red!60] (3,3) rectangle +(0.2,0.2);
-	\node at (3.0,2.5) {\small $k_5$};
-	\end{scope}
-	
-	\end{tikzpicture}
-\caption{\label{fig:sfcSearch}\small For a given ordered octree $\tau$  and a set of keys.}
-\end{figure}
 
 \begin{thebibliography}{00}
 \bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.
