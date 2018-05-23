@@ -162,7 +162,7 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 
 
 \subsection{Set intersection using radix bucketing}
-Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. Note that the \ref{tri_count} algorithm is recursive since it fit very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}
+Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. The motivation for our algorithm is the MSD bucketing algorithm which is at the core of the fastest sorting algorithms\cite{b14}. It is easy to split up the work among threads with a low communication overhead between recursion and threads. Note that this algorithm is recursive. It fits very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}.
 
 \begin{algorithm}
   \caption{Count triangles by counting $|E \cap E'|$.\label{tri_count}}
@@ -170,36 +170,50 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
     \Statex
     \State $t\_cnt = 0$ 
     \State $b=2^d$ \Comment{\small $d=$ radix bits, $b=$ radix buckets}
-    \Function{Intersect\_Count}{$E, E', t\_cnt, depth$}
-      \If{$|E|\eq 0 \lor |E'|\eq 0$}
+    \Function{INTERSECT\_COUNT}{$E, E', t\_cnt, depth$}
+      \If{$|E|\eq 0 \lor |E'|\eq 0$ \label{recursion_term_empty}}
 	\State \Return{}
       \EndIf
-      \If{$depth \geq depth_{max}$}
+      \If{$depth \geq depth_{max}$ \label{recursion_term_dmax}}
 	\State $t\_cnt = t\_cnt + |E'|$
 	\State \Return{}
       \EndIf
-      \If{$|E|\leq thr \lor |E'|\leq thr$}
+      \If{$|E|\leq thr \lor |E'|\leq thr$ \label{recursion_term_thresh}}
 	\State $t\_cnt = t\_cnt +$SEQ\_INTERSECT\_CNT($E, E'$)
 	\State \Return{}
       \EndIf
-      \State $E_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E$, $depth$)
-      \State $E'_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E'$, $depth$)
-      \State $E_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E_{cnt}^T)))$
-      \State $E'_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E'_{cnt}^T)))$
+      \State $E_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E$, $depth$) \label{par_cnt_e}
+      \State $E'_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E'$, $depth$) \label{par_cnt_e_prime}
+      \State $E_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E_{cnt}^T)))$ \label{inc_sum_scan_e_cnt}
+      \State $E'_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E'_{cnt}^T)))$ \label{inc_sum_scan_e_prime_cnt}
       \ForAll{b}
-	\State $E[b] \gets$ MOVE($E, E_{cnt\_scan}[b]$)
+	\State $E_{buf}[b] \gets$ MOVE($E, E_{cnt\_scan}[b]$) \label{move_e_cnt_scan}
       \EndFor
       \ForAll{b}
-	\State $E'[b] \gets$ MOVE($E', E'_{cnt\_scan}[b]$)
+	\State $E'_{buf}[b] \gets$ MOVE($E', E'_{cnt\_scan}[b]$) \label{move_e_prime_cnt_scan}
       \EndFor
       \ForAll{b}
-	\State INTERSECT\_COUNT($E[b], E'[b], t\_cnt, depth+1$)
+	\State INTERSECT\_COUNT($E_{buf}[b], E'_{buf}[b], t\_cnt, depth+1$) \label{recursion_call}
       \EndFor
     \EndFunction
   \end{algorithmic}
 \end{algorithm}
 
-Since the algorithm is designed as a shared memory algorithm we will store the triangle count in 
+The triangle count $t\_cnt$ is initialized to 0 and it will be updated atomically by the threads as they find valid candidate edges in $E'$. We can specify the number of radix bits and hence the number of buckets to use for the algorithm up front. The recursive function takes as parameters the edge list $E$, the candidate edge list $E'$, the pointer to the triangle count $t\_cnt$ and the current depth of the recursion $depth$. Early recursion termination happens on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} and \ref{recursion_term_thresh}. The termination conditions on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} are self-explanatory. A hybrid approach towards the tail end of the recursion is known to perform better\cite{b16}. When the input is small i.e. $|E|$ and $|E'|$ are smaller than a threshold $thr$ we perform a simple sequential intersection count and add it to $t\_cnt$. Although we have not implemented it, its worth mentioning that the OrderedMerge demonstrated in \cite{b17, b18} are alternatives that can yield substantial improvements at the tail end of the recursion.
+
+The first step of the recursion is the parallel count. The parallel count in lines \ref{par_cnt_e} and \ref{par_cnt_e_prime} distributes the input list among $p$ threads. Each thread will process $\frac{n}{p}$ edges. A simple masking operation for the vertices of each edge as shown in \ref{bucket_mask} tells us the bucket to which $q$ will belong
+
+\begin{equation}
+(q \gg (2^{depth_{max}-depth}-(d-1)))\land(b-1) \label{bucket_mask}
+\end{equation}
+
+The $b$ counts $E_{cnt}$, $E'_{cnt}$  shown in line \ref{par_cnt_e} will be populated with a time complexity $O(\frac{|E|}{p})$ and $O(\frac{|E'|}{p})$ assuming the $p$ threads work simultaneously. This count is computed in global shared memory and is a matrix of size $p \times b$ since the local count computed by each thread is not summed up yet. For the move to be performed in parallel by $p$ threads in lines \ref{move_e_cnt_scan} and \ref{move_e_prime_cnt_scan}, we need to know the index location in the output buffers $E_{buf}$ and $E'_{buf}$ where the data will be moved.
+
+The steps in lines \ref{inc_sum_scan_e_cnt}, \ref{inc_sum_scan_e_prime_cnt} perform the task of computing the index locations of the move. The operator $vec$ used in line \ref{inc_sum_scan_e_cnt} is the vectorization operator\cite{b20} that will convert the $p \times b$ matrix into a column vector of size $bp \times 1$. An inclusive scan of this vector gives us the index location boundaries where each thread will perform a move operation for each bucket. The inclusive sum scan has a work complexity of $O(pb\cdot log(pb))$ and a time complexity defined by the Kogge-Stone or Hillis-Steele scan algorithms \cite{b14}. This enables us to perform the move as an EREW(exclusive read, exclusive write) operation in the final step. The $vec^{-1}$ operator simply converts the $bp \times 1$ vector into a $p \times b$ matrix. Note that the $vec$ and $vec^{-1}$ and transpose operations do not have to be performed explicitly if the $E_{cnt}$ is stored in column major order.
+
+The last step before recursion is the data movement. In line \ref{move_e_cnt_scan} the edges in $E$ are moved based on the bucket they belong to the offsets pointed by $E_{cnt\_scan}$ in the output buffer $E_{buf}$. The move is done for $E'$ in line \ref{move_e_prime_cnt_scan}. This stable operation requires just two buffers of size $2\times (|E|+|E'|)$ since the input buffer at $depth$ can be used as the output buffer at recursion $depth+1$ and vice versa.
+
+Intersect\_count will be called recursively for each bucket with the corresponding data as shown in line \ref{recursion_call}. The pointer to a global memory $t\_cnt$ is also passed on. The recursive call is made to all the buckets simultaneously - the loop over all buckets has only been shown for clarity. Similarly, the loops in lines \ref{move_e_cnt_scan}, \ref{move_e_prime_cnt_scan} also run simultaneously.
 
 % Radix sort count E and EPrime(E, EPrime, len_E, len_EPrime, triangleCount, depth):
 % 1. If len_E or len_EPrime is 0 return.
