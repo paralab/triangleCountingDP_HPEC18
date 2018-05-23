@@ -139,9 +139,9 @@ While generating the set of candidate edges we have focussed on maintaining excl
 
 The input to algorithm \ref{eprimegen} is the edge list $E$. Each element in the list $E$ is an ordered tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer. Accounting for endianness might require reordering $(u,v)$ to $(v,u)$. The radix sort in line \ref{cubs_radix_sort} is performed on the edge list $E$ using the fast double buffered tunable radix sort from \cite{b19}. The resultant list is the adjacency list since it is sorted by $u$ first and $v$ next. We refer to the adjacency list as $E$ from here onwards. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. In steps \ref{par_cnt} and \ref{par_red}, the total number of vertices which is the length of the first dimension of the adjacency list $E_{len}$ is found. The next 4 steps are used to calculate the indexes in the input buffer $E_{index}$ and output buffer $E'_{size\_scan}$. 
 
-Each step from \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2} = \frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in \ref{par_size_calc} and stored in $E'_{size}$.
+Each step from \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2}=\frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in \ref{par_size_calc} and stored in $E'_{size}$.
 
-The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where the combinations corresponding to each vertex in the adjacency list will be written. The inclusive sum is computed using \cite{b19}. In the final step in line \ref{par_gen}, each thread takes ownership of one or more vertices in the adjacency list $E$. For each vertex $u$ having degree $deg$ in the adjacency list, the $\frac{deg(deg-1)}{2}$ combinations of edges corresponding to wedges will be written out to the index locations in $E'$ pointed out by $E'_{size\_scan}$. In the next section we will describe our algorithm for 
+The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where the combinations corresponding to each vertex in the adjacency list will be written. The inclusive sum is computed using \cite{b19}. In the final step in line \ref{par_gen}, each thread takes ownership of one or more vertices in the adjacency list $E$. For each vertex $u$ having degree $deg$ in the adjacency list, the $\frac{deg(deg-1)}{2}$ combinations of edges corresponding to wedges will be written out to the index locations in $E'$ pointed out by $E'_{size\_scan}$.
 
 % Compute Eprime(Adjacency list E with each member being an ordered tuple of base type such as (u=int, v=int), ITEMS_PER_THREAD):
 % 1. Read in the adjacency list as a list of double precision type.
@@ -162,11 +162,14 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 
 
 \subsection{Set intersection using radix bucketing}
+Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. Note that the \ref{tri_count} algorithm is recursive since it fit very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}
+
 \begin{algorithm}
   \caption{Count triangles by counting $|E \cap E'|$.\label{tri_count}}
   \begin{algorithmic}[1]
     \Statex
-    \State $t\_cnt = 0$    
+    \State $t\_cnt = 0$ 
+    \State $b=2^d$ \Comment{\small $d=$ radix bits, $b=$ radix buckets}
     \Function{Intersect\_Count}{$E, E', t\_cnt, depth$}
       \If{$|E|\eq 0 \lor |E'|\eq 0$}
 	\State \Return{}
@@ -176,18 +179,34 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 	\State \Return{}
       \EndIf
       \If{$|E|\leq thr \lor |E'|\leq thr$}
-	\State $t\_cnt = t\_cnt +$SEQ\_INT\_CNT($E, E'$)
+	\State $t\_cnt = t\_cnt +$SEQ\_INTERSECT\_CNT($E, E'$)
 	\State \Return{}
-      \EndIf      
+      \EndIf
+      \State $E_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E$, $depth$)
+      \State $E'_{cnt}[b]$ $\gets$ PARALLEL\_COUNT($E'$, $depth$)
+      \State $E_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E_{cnt}^T)))$
+      \State $E'_{cnt\_scan} \gets$ $vec^{-1}($INC\_SUM\_SCAN$(vec(E'_{cnt}^T)))$
+      \ForAll{b}
+	\State $E[b] \gets$ MOVE($E, E_{cnt\_scan}[b]$)
+      \EndFor
+      \ForAll{b}
+	\State $E'[b] \gets$ MOVE($E', E'_{cnt\_scan}[b]$)
+      \EndFor
+      \ForAll{b}
+	\State INTERSECT\_COUNT($E[b], E'[b], t\_cnt, depth+1$)
+      \EndFor
     \EndFunction
   \end{algorithmic}
 \end{algorithm}
+
+Since the algorithm is designed as a shared memory algorithm we will store the triangle count in 
 
 % Radix sort count E and EPrime(E, EPrime, len_E, len_EPrime, triangleCount, depth):
 % 1. If len_E or len_EPrime is 0 return.
 % 2. If the this recursion goes beyond the depth_max simple add the count len_EPrime to triangleCount and return.
 % 3. If the number of elements in len_E or len_EPrime is smaller than a threshold perform a lookup for each element in EPrime in E in O(len_E*len_EPrime). Add count to trianglecount and return.
 % 4. Find counts for each bucket in the list E and list EPrime using radix bucketing.
+
 % 5. Prefix inclusive sum scan for both E and EPrime.
 % 6. Move the elements in E and EPrime to their respective buckets.
 % 7. Recurse for each bucket.
@@ -295,5 +314,7 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 \bibitem{b17} J. Shun and K. Tangwongsan, “Multicore triangle computations without tuning,” in Data Engineering (ICDE), 2015 IEEE 31st International Conference on. IEEE, 2015, pp. 149–160.
 \bibitem{b18} A. S. Tom et al., "Exploring optimizations on shared-memory platforms for parallel triangle counting algorithms," 2017 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2017, pp. 1-7.
 \bibitem{b19} \url{https://nvlabs.github.io/cub/structcub_1_1_device_radix_sort.html}
+\bibitem{b20} H.D. Macedo, J.N. Oliveira, Typing linear algebra: A biproduct-oriented approach, Science of Computer Programming, Volume 78, Issue 11, 2013, Pages 2160-2191.
+\bibitem{b21} \url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-dynamic-parallelism}
 \end{thebibliography}
 \end{document}
