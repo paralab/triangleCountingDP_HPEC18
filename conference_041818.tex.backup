@@ -70,122 +70,11 @@ component, formatting, style, styling, insert
 \end{IEEEkeywords}
 
 \section{Introduction}
-\subsection{Graph algorithms overview}
-A number of data and network analytics questions on relational data can be posed as graph problems. For example, the transitivity or clustering coefficient tells us how clustered the nodes in a graph are. Clustered or small world networks having large value of clustering co-efficient have enhanced signal-propagation speed, synchronizability and computational power\cite{b1}. Nodes in sub-graphs with this property can be targetted for quick or low energy information disbursement. Another example involves finding the count and presence of certain structures in a graph. Identifying clusters of these patterns\cite{b2} or sub-graphs can indicate classes of predators in a food-web or interactions between sensors and effectors in a neural network\cite{b3}. A commonly occuring use case is of recommendations to connect with friends of friends in large social networks. It can be computed using the length of the path between two users\cite{b4}.
-\subsection{Triangle counting as an application}
-A k-truss is a maximal subgraph of a given graph such that each edge in it is contained in at least k-2 triangles. The k-truss in a graph is a sub-graph all the applications mentioned here can use. Triangles are the simplest subgraph in a graph. Counting the number of triangles in a graph is building block that can be used in finding the k-truss\cite{b5}. This makes triangle counting such a lucritive problem for the sub-graph isomorphism challenge\cite{b6}.
-\subsection{Different approaches - set intersection/Linear algebra/map reduce/approximation methods for triangle counting}
-Among the prominent methods for computing the count of triangles are ones using set intersection, linear algebra, map reduce and approximation methods. Set intersection algorithms \cite{b7} involve computing a set of all the possible edges that could generate triangles and counting the number of intersections with the original adjacency list. Innovations in the ordering of the members of the sets as well as ease of distribution of the work among multiple processes makes this class of algorithms highly performant\cite{b8} and ideal for implementation on shared memory systems. This class of algorithms is what inspired our work. Linear algebra approaches involve variantions of $\sum_{i,j}A^2\circ A$ where $A$ is the adjacency matrix\cite{b6}. One variantion involves splitting up the adjacency matrix into lower and upper triangular matrices not including the diagonal $A = L + U$. The product $B = L*U$ counts the number of paths of length 2 in the graph. Finding if the wedges close by performing a Hadamard product $C= A\circ B$ gives us the triangle count $\sum_{ij}(C)/2$\cite{b10, b9}. Map reduce approaches use frameworks such as Hadoop and distribute the adjacency lists among nodes arbitrarily. For a more detailed overview refer to \cite{b11,b12}. An interesting class of algorithms rely on wedge sampling to get an approximate count of the number of triangles. The work done in \cite{b13} shows an excellent use case that uses the birthday paradox to sample a set of wedges from the set of vertices and finding the approximate number of triangles by finding the number of closed wedges in this set.
-
-\subsection{Argument for improving performance by parallelizing graph algorithms for shared memory use with GPU and OpenMP}
-???NOT SURE what to write here???
-
-\subsection{Discrete algorithm RADIX BUCKETING for set intersection}
-Set intersection among two lists is an expensive operation if the lists are large. Consider the problem of finding the number of edges in a list $E'$ which are present in $E$. Each element of the list is an ordered integer tuple $(u,v)$. For a value $(u,v)$ in $E$ to be equal to a value $(u',v')$ in $E'$, each bit in the binary representation of $u$ must match $u'$ and each bit in $v$ must match $v'$. We use this idea to bucket the entire list one bit at a time. Figure \ref{fig_radix_bucketing} gives an example of how a recursive bucket traversal can be used to perform intersection.
-
-\begin{figure}
-	\begin{tikzpicture}[scale=0.3, every node/.style={scale=0.9}]
-	% \draw[gray, very thin] (0,0) grid +(8,8);
-
-	\begin{scope}[shift={(0,0)}]
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4] (0,0) grid +(8,8);
-	\draw[step=2] (0,0) grid +(4,4);
-	\draw[step=2] (0,4) grid +(4,4);
-	\draw[step=1] (0,6) grid +(2,2);
-    
-	\fill[red!100] (0.5,6.5) rectangle +(0.2,0.2);
-	\node at (0.5, 5.6) {\small $E_1$};
-	\fill[red!100] (1.5,1.5) rectangle +(0.2,0.2);
-	\node at (1.4, 0.9) {\small $E_2$};
-	\fill[red!100] (6.5,5.5) rectangle +(0.2,0.2);
-	\node at (6.5,4.9) {\small $E_3$};
-	
-	\node at (4,-0.4) {\small $v$};
-	\node at (-0.4,4) {\small $u$};
-	\end{scope}	 	
-	
-	\begin{scope}[shift={(10,0)}]
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4] (0,0) grid +(8,8);
-	\draw[step=2] (0,0) grid +(4,4);
-	\draw[step=2] (0,4) grid +(4,4);
-	\draw[step=1] (0,6) grid +(2,2);
-    
-	\fill[blue!100] (0.6,6.6) circle (0.1);
-	\node at (0.5, 5.6) {\small $E'_1$};
-	\fill[blue!100] (2.5,1.5) circle (0.1);
-	\node at (2.5, 1) {\small $E'_2$};
-	\fill[blue!100] (6.5,1.5) circle (0.1);
-	\node at (6.7, 1.1) {\tiny $E'_3$};
-	\fill[blue!100] (5,2) circle (0.1);
-	\node at (5, 1.6) {\tiny $E'_4$};
-	\fill[blue!100] (6,1) circle (0.1);
-	\node at (6, 0.6) {\tiny $E'_5$};
-	\fill[blue!100] (7,3) circle (0.1);
-	\node at (7.2, 2.6) {\tiny $E'_6$};
-	\fill[blue!100] (4.5,3.5) circle (0.1);
-	\node at (4.6, 3.1) {\tiny $E'_7$};
-	\fill[blue!100] (6,2) circle (0.1);
-	\node at (6, 2.5) {\tiny $E'_8$};
-	\fill[blue!100] (1.5,7.5) circle (0.1);
-	\node at (2.5, 7.5) {\small $E'_9$};
-	
-	\node at (4,-0.4) {\small $v$};
-	\node at (-0.4,4) {\small $u$};
-	\end{scope}
-
-	\begin{scope}[shift={(20,0)}]
-	\fill[gray!30] (0,0) rectangle +(8,8);
-	\fill[gray!50] (0,0) rectangle +(4,4);
-	\fill[gray!50] (0,4) rectangle +(4,4);
-	\fill[gray!70] (1,6) rectangle +(1,1);
-	\fill[gray!70] (1,7) rectangle +(1,1);
-	\fill[gray!70] (0,7) rectangle +(1,1);
-	\fill[green!80] (0,6) rectangle +(1,1);
-	
-	\draw (0,0) rectangle +(8,8);
-	\draw[step=4] (0,0) grid +(8,8);
-	\draw[step=2] (0,0) grid +(4,4);
-	\draw[step=2] (0,4) grid +(4,4);
-	\draw[step=1] (0,6) grid +(2,2);
-	
-	\node at (6,2) {\small $r_1$};
-	\node at (6,6) {\small $r_3$};
-	\node at (1,1) {\footnotesize $r_{00}$};
-	\node at (3,1) {\footnotesize $r_{01}$};
-	\node at (1,3) {\footnotesize $r_{02}$};
-	\node at (3,3) {\footnotesize $r_{03}$};
-	\node at (1,5) {\footnotesize $r_{20}$};
-	\node at (3,5) {\footnotesize $r_{21}$};	
-	\node at (3,7) {\footnotesize $r_{23}$};
-	\node[scale=0.6] at (0.5,6.5) {\tiny $r_{220}$};
-	\node[scale=0.6] at (1.5,6.5) {\tiny $r_{221}$};
-	\node[scale=0.6] at (0.5,7.5) {\tiny $r_{222}$};
-	\node[scale=0.6] at (1.5,7.5) {\tiny $r_{223}$};
-	
-	\node at (4,-0.4) {\small $v$};
-	\node at (-0.4,4) {\small $u$};
-	\end{scope}
-	
-	\end{tikzpicture}
-\caption{\label{fig_radix_bucketing}From left to right: Elements of edge list $E$ with the bucket traversal overlay; elements of edge list $E'$ with the bucket traversal overlay; bucket traversal with region labels.}
-\end{figure}
-
-To perform bucketing, we first take the integer $u$ and mask the highest bit. The resultant value is concatenated with the masked highest bit of $v$. The resultant value is a number between 0 and 3. This lets us put each value in $E$ and $E'$ into the buckets $r_0$ through $r_3$ as shown in the last figure in figure \ref{fig_radix_bucketing}. From this point we will recursively compute intersections only if both $E$ and $E'$ have edges in the bucket. As shown in the first and second of figure \ref{fig_radix_bucketing} we can see that bucket $r_1$ in $E$ does not have any edges while bucket $r3$ in $E'$ does not have any edges. Hence, we do not need to recurse in these buckets at all. Now $r_1$ has edges $E'_3$ through $E'_8$ which do not need to be tested. We have eliminated the need to test 6 out of 9 edges in $E'$. This is a significant reduction in work. Also, $r_3$ is eliminated as a potential bucket for recursion in $E$ removing the need to test edge $E_3$. In the next level of recursion we eliminate buckets $r_{00}$ through $r_{03}$ as well as $r_{20}, r_{21}, r_{23}$. Recursing on $r_{22}$ further we see that $r_{220}$ is the only bucket which has edges both in lists $E$ and $E'$. $E'_9$ in bucket $r_{223}$ does not have corresponding edges in $E$. Since $r_{220}$ has very few elements in both $E$ and $E'$ we can compare each element in $E'$ to each element in $E$ for $r_{220}$ to find that $E'_1$ has a matching edge $E_1$ and is the only edge also present in list $E$.
-
-Although this is a synthetic example, it demonstrates that sparse distributions on $E$ and $E'$ will result in elimination of a large set of candidates for intersection quickly. Each level of recursion is $O(|E|+|E'|)$ i.e. it is $O(n)$ in the size of the lists.
-
-\section{Background and Related work}
-\subsection{Parallel Graph algorithms}
-\subsection{GPU}
-\subsection{Linear algebra}
-\subsection{Graph}
-\subsection{Triangle counting}
+\input{intro.tex}
 
 \section{Methods}
-\subsection{Simple Linear algebra approach as a motivation}
-The problem of finding the count of triangles can be reduced to counting all paths(walks) of length 2 between two vertices if there is a closure i.e. an edge between the two vertices. An element $A(i,j)$ in the square adjacency matrix defines the number of paths or the weight of an edge between nodes $i$ and $j$. For an undirected unweighted graph the adjacency matrix elements are 0 or 1. We know that the $n^{th}$ power of an adjacency matrix $A^n$ gives us the number of walks $A^n(i,j)$ of length $n$ that exist between nodes $i$ and $j$. For $n=2$ the walks are paths if the diagonal of the adjacency matrix is 0. Thus, each element of $A^2$ defines the number of paths of length 2. Let $C$ denote the Hadamard product or elementwise product of this with the adjacency matrix $C=A^2\circ A$. An element of matrix $C(i,j)$ gives us he number of triangles edge $(i,j)$ is a part of. Hence, the sum of all the elements of this matrix gives us the total number of triangles in the graph. Each triangle is counted three times in the matrix $C$ - once for each edge. Also, in an undirected graph each edge is counted twice as $A(i,j)$ and $A(j,i)$ both indicating the same edge. This implies that $\sum_{ij}(C)$ counts each triangle $6$ times. The total number of triangles is given by equation \ref{numTriangles}:
+\subsection{Linear algebra approach to triangle counting}
+The problem of finding the count of triangles can be interpreted as counting all paths(walks) of length 2 between two vertices if there is a closure i.e. an edge between the two vertices. An element $A(i,j)$ in the square adjacency matrix defines the number of paths or the weight of an edge between nodes $i$ and $j$. For an undirected unweighted graph the adjacency matrix elements are 0 or 1. We know that the $n^{th}$ power of an adjacency matrix $A^n$ gives us the number of walks $A^n(i,j)$ of length $n$ that exist between nodes $i$ and $j$. For $n=2$ the walks are paths if the diagonal of the adjacency matrix is 0. Thus, each element of $A^2$ defines the number of paths of length 2. Let $C$ denote the Hadamard product or elementwise product of this with the adjacency matrix $C=A^2\circ A$. An element of matrix $C(i,j)$ gives us the number of triangles that the edge $(i,j)$ is a part of. Hence, the sum of all the elements of this matrix gives us the total number of triangles in the graph. Each triangle is counted three times in the matrix $C$ - once for each edge. Also, in an undirected graph each edge is counted twice as $A(i,j)$ and $A(j,i)$ both indicating the same edge. This implies that $\sum_{ij}(C)$ counts each triangle $6$ times. The total number of triangles is given by equation \ref{numTriangles}:
 
 \begin{equation}
  n_{T} = \sum_{ij}(C)/6 \label{numTriangles}
@@ -193,11 +82,11 @@ The problem of finding the count of triangles can be reduced to counting all pat
 
 Triangle counting using this method has a high work complexity and is viable only for graphs with dense adjacency matrices. Most graphs tend to have sparser adjacency matrices. We can reduce the work complexity by techniques such as using masked multiplication after LU decomposition\cite{b10}. The decomposition as well as the masked multiplication is computationally expensive since it uses a significant amount of communication between workers. We can reduce the amount of communication by using a set intersection approach.
 
-\subsection{Short summary of standard algorithms}
-Our algorithm consists of two main steps. The first step involves finding out all the possible combinations of wedges that exist in our graph. This is computed using the adjacency list representation of the graph. The result of this step is a list of edges closing the wedges hence forming a triangle. The second step is the radix bucket based set intersection. In this step we find out if the list of candidate edges computed before is actually present in the graph. The following sections describe these steps in detail.
+\subsection{Two step algorithm}
+Our algorithm consists of two main steps. The first step involves finding out all the possible combinations of wedges that exist in our graph. This is computed using the adjacency list representation of the graph. The result of this step is a list of edges closing the wedges, hence forming a triangle. The second step is the radix bucket based set intersection. In this step we find out if the list of candidate edges computed before is actually present in the graph. The following sections describe these steps in detail.
 
 \subsection{Finding candidate closure edges $E'$}
-While generating the set of candidate edges we have focussed on maintaining exclusive access to the input and output buffers as well as coalescing our reads and writes. This ensures that the memory accessess which are sequential  will benifit from hierarchical memory caches in GPU architectures. Ensuring exclusive read and exclusive writes for large $E$ and $E'$ requires us two know two things. The size of the $E'$ output buffer to allocate in the global memory. The read boundaries of $E$ in which each thread will operate to generate the wedges along with the write boundaries of $E'$ where it will write the candidate edges closing these wedges. This is performed by the algorithm \ref{eprimegen}.
+While generating the set of candidate edges we have focused on maintaining exclusive access to the input and output buffers as well as coalescing our reads and writes. This ensures that the memory accesseses which are sequential  will benefit from hierarchical memory caches in GPU architectures. Ensuring exclusive read and exclusive writes for large $E$ and $E'$ requires us two know two things. The size of the $E'$ output buffer to allocate in the global memory. The read boundaries of $E$ in which each thread will operate to generate the wedges along with the write boundaries of $E'$ where it will write the candidate edges closing these wedges. This is performed by the algorithm \ref{eprimegen}.
 
 \begin{algorithm}
   \caption{Compute candidate edges for closure test.\label{eprimegen}}  
@@ -218,9 +107,9 @@ While generating the set of candidate edges we have focussed on maintaining excl
   \end{algorithmic}
 \end{algorithm}
 
-The input to algorithm \ref{eprimegen} is the edge list $E$. Each element in the list $E$ is an ordered tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer. Accounting for endianness might require reordering $(u,v)$ to $(v,u)$. The radix sort in line \ref{cubs_radix_sort} is performed on the edge list $E$ using the fast double buffered tunable radix sort from \cite{b19}. The resultant list is the adjacency list since it is sorted by $u$ first and $v$ next. We refer to the adjacency list as $E$ from here onwards. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. In steps \ref{par_cnt} and \ref{par_red}, the total number of vertices which is the length of the first dimension of the adjacency list $E_{len}$ is found. The next 4 steps are used to calculate the indexes in the input buffer $E_{index}$ and output buffer $E'_{size\_scan}$. 
+The input to algorithm \ref{eprimegen} is the edge list $E$. Each element in the list $E$ is an ordered tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer. Accounting for endianness might require reordering $(u,v)$ to $(v,u)$. The radix sort in line \ref{cubs_radix_sort} is performed on the edge list $E$ using the fast double buffered tunable radix sort from \cite{b19}. The resultant list is the adjacency list since it is sorted by $u$ first and $v$ next. We refer to the adjacency list as $E$ here onwards. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. In steps \ref{par_cnt} and \ref{par_red}, the total number of vertices which is the length of the first dimension of the adjacency list $E_{len}$ is found. The next 4 steps are used to calculate the indexes in the input buffer $E_{index}$ and output buffer $E'_{size\_scan}$. 
 
-Each step from \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2}=\frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in \ref{par_size_calc} and stored in $E'_{size}$.
+Each step from lines \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2}=\frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in line \ref{par_size_calc} and stored in $E'_{size}$.
 
 The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where the combinations corresponding to each vertex in the adjacency list will be written. The inclusive sum is computed using \cite{b19}. In the final step in line \ref{par_gen}, each thread takes ownership of one or more vertices in the adjacency list $E$. For each vertex $u$ having degree $deg$ in the adjacency list, the $\frac{deg(deg-1)}{2}$ combinations of edges corresponding to wedges will be written out to the index locations in $E'$ pointed out by $E'_{size\_scan}$.
 
@@ -243,7 +132,7 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 
 
 \subsection{Set intersection using radix bucketing}
-Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. The motivation for our algorithm is the MSD bucketing algorithm which is at the core of the fastest sorting algorithms\cite{b14}. It is easy to split up the work among threads with a low communication overhead between recursion and threads. Note that this algorithm is recursive. It fits very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}.
+Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. The motivation for our algorithm is the MSD bucketing algorithm which is at the core of the fastest sorting algorithms\cite{b14}. It is easy to split up the work among threads with a low communication overhead between recursions and small amount of inter-thread communication. Note that this algorithm is recursive. It fits very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}.
 
 \begin{algorithm}
   \caption{Count triangles by counting $|E \cap E'|$.\label{tri_count}}
@@ -274,7 +163,7 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
 	\State $E'_{buf}[b] \gets$ MOVE($E', E'_{cnt\_scan}[b]$) \label{move_e_prime_cnt_scan}
       \EndFor
       \ForAll{b}
-	\State INTERSECT\_COUNT($E_{buf}[b], E'_{buf}[b], t\_cnt, depth+1$) \label{recursion_call}
+	\State \footnotesize{INTERSECT\_COUNT($E_{buf}[b], E'_{buf}[b], t\_cnt, depth+1$)} \label{recursion_call}
       \EndFor
     \EndFunction
   \end{algorithmic}
@@ -372,7 +261,11 @@ To test scaling we demonstrate the effect of changing two major properties of th
 \end{table*}
 
 \subsection{Effect of changing the structure of the graph on the running time}
-The p2p-Gnutella dataset has roughly the same density and connectivity since $|E'|$ is about  ranging from 40000 to about 100000
+The p2p-Gnutella dataset has roughly the same density and connectivity since $|E'|$ is about 450000 while the number of edges range from 40000 to about 100000. This can be seen in the third set of the results. As seen in the total running time the structure and connectivity characteristics do not have a significant effect on the running time which is constant at about 2.5 seconds as seen in table \ref{table_result_runtimes}. The set 4 shows some of the outliers. But we can see that the COMPUTE\_$E'$ function still takes the same time. The minor differences in the INTERSECT\_COUNT can be attributed to the recursion depth and early termination. 
+
+\subsection{Conclusion}
+The strategy to generate the offsets where we can read from and write processed results can be effectively applied for various parallel tasks. It is scalable as can be seen by the run timings for similar graphs in table \ref{table_result_runtimes}. The recursive radix sort is not performing adequately due to a bug in tuning the kernel. 
+We intend on fixing the issue by batching the stage of generation of $|E'|$ and performing the intersection count.
 
 \begin{thebibliography}{00}
 \bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.
