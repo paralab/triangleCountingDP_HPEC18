@@ -265,7 +265,7 @@ The p2p-Gnutella dataset has roughly the same density and connectivity since $|E
 
 \subsection{Conclusion}
 The strategy to generate the offsets where we can read from and write processed results can be effectively applied for various parallel tasks. It is scalable as can be seen by the run timings for similar graphs in table \ref{table_result_runtimes}. The recursive radix sort is not performing adequately due to a bug in tuning the kernel. 
-We intend on fixing the issue by batching the stage of generation of $|E'|$ and performing the intersection count.
+We intend on fixing the issue by batching the stage of generation of $|E'|$ and performing the intersection count. Also, the initial implementation has highlighted several areas of improvement. The CUDA dynamic parallelism extension suffers from the overhead of launching kernels. The number of threads that can be launched is also limited by the compute capability of device. It is ideal for traversing fat and short trees. The isolation of data buffers between different workers implies that we can not only use this technique on a shared memory architecture but on a distributed one as well. Although we have not demonstrated that capability of the technique, we can extend the algorithm to work on a hybrid shared and distributed memory architecture easily. This will enable us to process larger graphs on a cluster of GPU nodes.
 
 \begin{thebibliography}{00}
 \bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.
