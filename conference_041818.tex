@@ -306,6 +306,77 @@ Intersect\_count will be called recursively for each bucket with the correspondi
 % 6. Move the elements in E and EPrime to their respective buckets.
 % 7. Recurse for each bucket.
 
+\section{Results and conclusion}
+\subsection{Effect of changing the size of sets $|E|$ and $|E'|$ on the running time}
+To test scaling we demonstrate the effect of changing two major properties of the graph. The number of edges $|E|$ in the graph and the density of the graph which changes as $|E'|$ changes. In the first set of values shown in table \ref{table_result_runtimes} we can see that the increasing the number of edges as well as the density i.e. correspondingly the size of $E'$ does not have a significant impact on the time taken to COMPUTE\_$E'$. The INTERSECTION\_COUNT also takes roughly the same amount of time although it is a bit more unpredictable. The change in the time takes by INTERSECTION\_COUNT can be attributed to the maximum recursion depth at which the recursion terminates. In set 2 the outliers from set 1 have been showcased. This rapid increase in the runtime is caused due to incorrect tuning of kernels. We are currently working on tuning the kernels to give a uniform performance irrespective of input size and density. It should be noted that the number of triangles in the actual graph does not really have an effect on the running time. The running time for dataset Theory-25-81-Bk.tsv at 59.5 s is close to the running time of Theory-25-81-B1k.tsv at 66.16 s. The difference in the number of triangles 0 against 2025 does not reduce the running time.
+\begin{table*}[ht]
+\centering
+ \begin{tabular}{|c || c | c | c || c | c | c |} 
+ \hline
+ \multicolumn{4}{|c||}{}&\multicolumn{3}{|c|}{Run time in seconds} \\
+ \hline
+ Dataset & $\#edges |E|$ & size of $|E'|$ & $\#triangles$ & COMPUTE\_$E'$ & INTERSECT\_COUNT & Total \\ [0.5ex] 
+ \hline\hline
+ Theory-3-4-Bk.tsv & 48 & 96 & 0 & 0.6 & 0.4 & 0.66 \\
+ \hline
+ Theory-3-4-5-Bk.tsv & 480 & 3360 & 0 & 0.61 & 0.08 & 0.71 \\
+ \hline
+ Theory-16-25-Bk.tsv & 1600 & 87600 & 0 & 0.63 & 0.11 & 0.76 \\
+ \hline
+ Theory-3-4-5-9-Bk.tsv & 8640 & 319680 & 0 & 0.63 & 0.36 & 1.04 \\
+ \hline
+ Theory-3-4-B1k.tsv & 62 & 225 & 36 & 0.6 & 0.03 & 0.67 \\
+ \hline
+ Theory-3-4-5-B1k.tsv & 692 & 10830 & 287 & 0.6 & 0.09 & 0.71 \\
+ \hline
+ Theory-16-25-B1k.tsv & 1682 & 105620 & 400 & 0.62 & 0.2 & 0.84 \\
+ \hline
+ Theory-3-4-B2k.tsv & 62 & 138 & 1 & 0.61 & 0.4 & 0.67 \\
+ \hline
+ Theory-3-4-5-B2k.tsv & 692 & 5339 & 7 & 0.61 & 0.08 & 0.71 \\
+ \hline
+ Theory-16-25-B2k.tsv & 1682 & 88943 & 1 & 0.62 & 0.13 & 0.78 \\
+ \hline
+ Theory-3-4-5-9-B2k.tsv & 13166 & 522804 & 35 & 0.64 & 0.79 & 1.48 \\
+ \hline\hline
+ 
+ Theory-3-4-5-9-B1k.tsv & 13166 & 1223427 & 9107 & 0.73 & 11.99 & 12.76 \\
+ \hline
+ Theory-25-81-Bk.tsv & 8100 & 2154600 & 0 & 0.87 & 58.59 & 59.5 \\
+ \hline
+ Theory-25-81-B1k.tsv & 8312 & 2378865 & 2025 & 0.9 & 65.220001 & 66.160004 \\
+ \hline
+ Theory-25-81-B2k.tsv & 8312 & 2165433 & 1 & 0.9 & 58.91 & 59.860001 \\
+ \hline\hline\hline
+
+ p2p-Gnutella04\_adj.tsv & 79988 & 518694 & 934 & 0.55 & 2.02 & 2.75 \\
+ \hline
+ p2p-Gnutella05\_adj.tsv & 63678 & 439066 & 1112 & 0.59 & 1.88 & 2.62 \\
+ \hline
+ p2p-Gnutella06\_adj.tsv & 63050 & 422567 & 1142 & 0.55 & 1.56 & 2.26 \\
+ \hline
+ p2p-Gnutella08\_adj.tsv & 41554 & 346033 & 2383 & 0.56 & 1.8 & 2.47 \\
+ \hline
+ p2p-Gnutella09\_adj.tsv & 52026 & 411347 & 2354 & 0.55 & 1.7 & 2.38 \\
+ \hline
+ p2p-Gnutella25\_adj.tsv & 109410 & 533121 & 806 & 0.55 & 1.98 & 2.76 \\
+ \hline\hline
+
+ p2p-Gnutella30\_adj.tsv & 176656 & 923756 & 1590 & 0.54 & 3.47 & 4.33 \\
+ \hline
+ p2p-Gnutella31\_adj.tsv & 295784 & 1568174 & 2024 & 0.54 & 5.66 & 6.95 \\
+ \hline
+\end{tabular}
+ \caption{Four sets of results. The first set consists of graphs with zero, many and some triangles in that order. The second consists of the outliers from the first set. The third collection represents graphs where the number of edges varies as well as the size of the set $E'$ varies but the running time is roughly constant. The last set contains outliers; the number of edges as well as the size of $E'$ generated doubles causing run time to double and triple.}
+ \label{table_result_runtimes}
+\end{table*}
+
+\subsection{Effect of changing the structure of the graph on the running time}
+The p2p-Gnutella dataset has roughly the same density and connectivity since $|E'|$ is about 450000 while the number of edges range from 40000 to about 100000. This can be seen in the third set of the results. As seen in the total running time the structure and connectivity characteristics do not have a significant effect on the running time which is constant at about 2.5 seconds as seen in table \ref{table_result_runtimes}. The set 4 shows some of the outliers. But we can see that the COMPUTE\_$E'$ function still takes the same time. The minor differences in the INTERSECT\_COUNT can be attributed to the recursion depth and early termination. 
+
+\subsection{Conclusion}
+The strategy to generate the offsets where we can read from and write processed results can be effectively applied for various parallel tasks. It is scalable as can be seen by the run timings for similar graphs in table \ref{table_result_runtimes}. The recursive radix sort is not performing adequately due to a bug in tuning the kernel. 
+We intend on fixing the issue by batching the stage of generation of $|E'|$ and performing the intersection count.
 
 \begin{thebibliography}{00}
 \bibitem{b1} D. Watts and S. Strogatz, “Collective dynamics of ’small-world’ networks,” Nature, no. 393, 1998.

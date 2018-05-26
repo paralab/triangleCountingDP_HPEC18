@@ -15,4 +15,8 @@
 \BOOKMARK [2][-]{subsection.3.2}{Short summary of standard algorithms}{section.3}% 15
 \BOOKMARK [2][-]{subsection.3.3}{Finding candidate closure edges E'}{section.3}% 16
 \BOOKMARK [2][-]{subsection.3.4}{Set intersection using radix bucketing}{section.3}% 17
-\BOOKMARK [1][-]{section*.1}{References}{}% 18
+\BOOKMARK [1][-]{section.4}{Results and conclusion}{}% 18
+\BOOKMARK [2][-]{subsection.4.1}{Effect of changing the size of sets |E| and |E'| on the running time}{section.4}% 19
+\BOOKMARK [2][-]{subsection.4.2}{Effect of changing the structure of the graph on the running time}{section.4}% 20
+\BOOKMARK [2][-]{subsection.4.3}{Conclusion}{section.4}% 21
+\BOOKMARK [1][-]{section*.1}{References}{}% 22
