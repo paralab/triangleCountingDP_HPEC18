@@ -10,7 +10,9 @@
 \BOOKMARK [2][-]{subsection.2.3}{Finding candidate closure edges E'}{section.2}% 10
 \BOOKMARK [2][-]{subsection.2.4}{Set intersection using radix bucketing}{section.2}% 11
 \BOOKMARK [1][-]{section.3}{Results and conclusion}{}% 12
-\BOOKMARK [2][-]{subsection.3.1}{Effect of changing the size of sets |E| and |E'| on the running time}{section.3}% 13
-\BOOKMARK [2][-]{subsection.3.2}{Effect of changing the structure of the graph on the running time}{section.3}% 14
-\BOOKMARK [2][-]{subsection.3.3}{Conclusion}{section.3}% 15
-\BOOKMARK [1][-]{section*.1}{References}{}% 16
+\BOOKMARK [2][-]{subsection.3.1}{Experimental setup}{section.3}% 13
+\BOOKMARK [2][-]{subsection.3.2}{Effect of changing the size of graph sets |E| and |E'| on the running time}{section.3}% 14
+\BOOKMARK [2][-]{subsection.3.3}{Effect of changing the structure of the graph on the running time}{section.3}% 15
+\BOOKMARK [2][-]{subsection.3.4}{Comparision with the serial implementation miniTri}{section.3}% 16
+\BOOKMARK [2][-]{subsection.3.5}{Conclusion}{section.3}% 17
+\BOOKMARK [1][-]{section*.1}{References}{}% 18

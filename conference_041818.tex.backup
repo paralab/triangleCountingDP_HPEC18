@@ -60,13 +60,11 @@ hari@cs.utah.edu}
 \maketitle
 
 \begin{abstract}
-This document is a model and instructions for \LaTeX.
-This and the IEEEtran.cls file define the components of your paper [title, text, heads, etc.]. *CRITICAL: Do Not Use Symbols, Special Characters, Footnotes, 
-or Math in Paper Title or Abstract.
+The pattern of computations of graph algorithms makes them difficult to parallelize. They suffer from erratic data access patterns. We propose a set of algorithmic patterns that enable users to take advantage of fine grained parallelism provided by modern CPU and GPU architectures. This allows accesses to be regularized which improves hierarchical cache access. We also propose a parallel stable binning algorithm that can be used for computing set intersection. This is illustrated through its application to triangle counting in large graphs.
 \end{abstract}
 
 \begin{IEEEkeywords}
-component, formatting, style, styling, insert
+graph algorithms, CUDA dynamic parallelism
 \end{IEEEkeywords}
 
 \section{Introduction}
@@ -74,7 +72,7 @@ component, formatting, style, styling, insert
 
 \section{Methods}
 \subsection{Linear algebra approach to triangle counting}
-The problem of finding the count of triangles can be interpreted as counting all paths(walks) of length 2 between two vertices if there is a closure i.e. an edge between the two vertices. An element $A(i,j)$ in the square adjacency matrix defines the number of paths or the weight of an edge between nodes $i$ and $j$. For an undirected unweighted graph the adjacency matrix elements are 0 or 1. We know that the $n^{th}$ power of an adjacency matrix $A^n$ gives us the number of walks $A^n(i,j)$ of length $n$ that exist between nodes $i$ and $j$. For $n=2$ the walks are paths if the diagonal of the adjacency matrix is 0. Thus, each element of $A^2$ defines the number of paths of length 2. Let $C$ denote the Hadamard product or elementwise product of this with the adjacency matrix $C=A^2\circ A$. An element of matrix $C(i,j)$ gives us the number of triangles that the edge $(i,j)$ is a part of. Hence, the sum of all the elements of this matrix gives us the total number of triangles in the graph. Each triangle is counted three times in the matrix $C$ - once for each edge. Also, in an undirected graph each edge is counted twice as $A(i,j)$ and $A(j,i)$ both indicating the same edge. This implies that $\sum_{ij}(C)$ counts each triangle $6$ times. The total number of triangles is given by equation \ref{numTriangles}:
+The problem of finding the count of triangles can be interpreted as counting all paths(walks) of length 2 between two vertices if there is a closure i.e. an edge between the two vertices. An element $A(i,j)$ in the square adjacency matrix defines the number of paths or the weight of an edge between nodes $i$ and $j$. For an undirected unweighted graph the adjacency matrix elements are 0 or 1. We know that the $n^{th}$ power of an adjacency matrix $A^n$ gives us the number of walks $A^n(i,j)$ of length $n$ that exist between nodes $i$ and $j$. For $n=2$ the walks are paths if the diagonal of the adjacency matrix is 0. Thus, each element of $A^2$ defines the number of paths of length 2. Let $C$ denote the Hadamard product or elementwise product of $A^2$ with the adjacency matrix $C=A^2\circ A$. An element of matrix $C(i,j)$ gives us the number of triangles that the edge $(i,j)$ is a part of. Hence, the sum of all the elements of this matrix gives us the total number of triangles in the graph. Each triangle is counted three times in the matrix $C$ - once for each edge. Also, in an undirected graph each edge is counted twice as $A(i,j)$ and $A(j,i)$ both indicating the same edge. This implies that $\sum_{ij}(C)$ counts each triangle $6$ times. The total number of triangles is given by equation \ref{numTriangles}:
 
 \begin{equation}
  n_{T} = \sum_{ij}(C)/6 \label{numTriangles}
@@ -107,11 +105,11 @@ While generating the set of candidate edges we have focused on maintaining exclu
   \end{algorithmic}
 \end{algorithm}
 
-The input to algorithm \ref{eprimegen} is the edge list $E$. Each element in the list $E$ is an ordered tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer. Accounting for endianness might require reordering $(u,v)$ to $(v,u)$. The radix sort in line \ref{cubs_radix_sort} is performed on the edge list $E$ using the fast double buffered tunable radix sort from \cite{b19}. The resultant list is the adjacency list since it is sorted by $u$ first and $v$ next. We refer to the adjacency list as $E$ here onwards. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. In steps \ref{par_cnt} and \ref{par_red}, the total number of vertices which is the length of the first dimension of the adjacency list $E_{len}$ is found. The next 4 steps are used to calculate the indexes in the input buffer $E_{index}$ and output buffer $E'_{size\_scan}$. 
+The input to algorithm \ref{eprimegen} is the edge list $E$. Each element in the list $E$ is an ordered tuple $(u,v)$ representing a pair of vertices. If the number of vertices in the graph fit within the bounds of an integer container, a single element of $E$ can be interpreted as a long integer. Accounting for endianness might require reordering $(u,v)$ to $(v,u)$. The radix sort in line \ref{cubs_radix_sort} of algorithm \ref{eprimegen} is performed on the edge list $E$ using the fast double buffered tunable radix sort from \cite{b19}. The resultant list is the adjacency list since it is sorted by $u$ first and $v$ next. We refer to the adjacency list as $E$ here onwards. Since radix sort has a work complexity of $O(bn)$ where $b$ is the number of bits in the container which is fixed, the asymptotic work complexity of radix sort is $O(n)$. The parallel time complexity of this shared memory implementation is $O(n/p)$ where $p$ is the number of threads executing simultaneously. In steps \ref{par_cnt} and \ref{par_red} of algorithm \ref{eprimegen}, the total number of vertices which is the length of the first dimension of the adjacency list $E_{len}$ is found. The next 4 steps are used to calculate the indexes in the input buffer $E_{index}$ and output buffer $E'_{size\_scan}$. 
 
-Each step from lines \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2}=\frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in line \ref{par_size_calc} and stored in $E'_{size}$.
+Each step from lines \ref{par_offset} through \ref{par_size_calc} is performed in the same kernel although they have been explicitly separated in the algorithm \ref{eprimegen}. In line \ref{par_offset} the $p$ processors compute the index locations of the beginning of the adjacency list of each vertex and write the result to $E_{index}$. The difference between consecutive index values in $E_{index}$ is used in line \ref{par_deg_calc} to compute the degree of each vertex. The number of wedges centered on a vertex in the adjacency list is dependent on the degree of the vertex. For each vertex in the adjacency list, a wedge can be formed by selecting one other edge in the adjacency list. We can remove duplicate wedges by only considering the ${deg \choose 2}=\frac{deg(deg-1)}{2}$ combinations instead of the $deg^2$ permutations. The number of candidate edges is the number of closing edges which is 1 for each wedge. This value is computed in line \ref{par_size_calc} and stored in $E'_{size}$.
 
-The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where the combinations corresponding to each vertex in the adjacency list will be written. The inclusive sum is computed using \cite{b19}. In the final step in line \ref{par_gen}, each thread takes ownership of one or more vertices in the adjacency list $E$. For each vertex $u$ having degree $deg$ in the adjacency list, the $\frac{deg(deg-1)}{2}$ combinations of edges corresponding to wedges will be written out to the index locations in $E'$ pointed out by $E'_{size\_scan}$.
+The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where the combinations corresponding to each vertex in the adjacency list will be written. The inclusive sum is computed using the NVIDIA cubs radix sort\cite{b19}. In the final step in algorithm \ref{eprimegen}, line \ref{par_gen}, each thread takes ownership of one or more vertices in the adjacency list $E$. For each vertex $u$ having degree $deg$ in the adjacency list, the $\frac{deg(deg-1)}{2}$ combinations of edges corresponding to wedges will be written out to the index locations in $E'$ pointed out by $E'_{size\_scan}$.
 
 % Compute Eprime(Adjacency list E with each member being an ordered tuple of base type such as (u=int, v=int), ITEMS_PER_THREAD):
 % 1. Read in the adjacency list as a list of double precision type.
@@ -132,7 +130,7 @@ The inclusive scan sum of $E'_{size}$ gives us the index locations in $E'$ where
 
 
 \subsection{Set intersection using radix bucketing}
-Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. The motivation for our algorithm is the MSD bucketing algorithm which is at the core of the fastest sorting algorithms\cite{b14}. It is easy to split up the work among threads with a low communication overhead between recursions and small amount of inter-thread communication. Note that this algorithm is recursive. It fits very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in \ref{tri_count}.
+Counting of the triangles is done by finding out if each edge in $E'$ is actually present in $E$. Performing a lookup for each member from $E'$ in $E$ can be a $O(|E'|log(|E|))$ operation if $E$ is sorted using a naive binary tree. But $E$ itself can be very large and may not fit in memory even if we batch the lookups of members of $E'$. In this case we need an algorithm which can scale well and work on shared as well as distributed memory architectures. Although our implementation is on a shared memory SIMD device, we have designed the algorithm to be extended onto distributed memory SPMD architectures. The motivation for our algorithm is the MSD bucketing algorithm which is at the core of the fastest sorting algorithms\cite{b14}. It is easy to split up the work among threads with a low communication overhead between recursions and small amount of inter-thread communication. Note that this algorithm is recursive. It fits very well with the NVIDIA CUDA Dynamic Parallelism extension\cite{b21}. The algorithm is shown in algorithm \ref{tri_count}.
 
 \begin{algorithm}
   \caption{Count triangles by counting $|E \cap E'|$.\label{tri_count}}
@@ -169,19 +167,19 @@ Counting of the triangles is done by finding out if each edge in $E'$ is actuall
   \end{algorithmic}
 \end{algorithm}
 
-The triangle count $t\_cnt$ is initialized to 0 and it will be updated atomically by the threads as they find valid candidate edges in $E'$. We can specify the number of radix bits and hence the number of buckets to use for the algorithm up front. The recursive function takes as parameters the edge list $E$, the candidate edge list $E'$, the pointer to the triangle count $t\_cnt$ and the current depth of the recursion $depth$. Early recursion termination happens on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} and \ref{recursion_term_thresh}. The termination conditions on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} are self-explanatory. A hybrid approach towards the tail end of the recursion is known to perform better\cite{b16}. When the input is small i.e. $|E|$ and $|E'|$ are smaller than a threshold $thr$ we perform a simple sequential intersection count and add it to $t\_cnt$. Although we have not implemented it, its worth mentioning that the OrderedMerge demonstrated in \cite{b17, b18} are alternatives that can yield substantial improvements at the tail end of the recursion.
+In algorithm \ref{tri_count}, the triangle count $t\_cnt$ is initialized to 0 and it will be updated atomically by the threads as they find valid candidate edges in $E'$. We can specify the number of radix bits and hence the number of buckets to use for the algorithm up front. The recursive function takes as parameters the edge list $E$, the candidate edge list $E'$, the pointer to the triangle count $t\_cnt$ and the current depth of the recursion $depth$. Early recursion termination happens on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} and \ref{recursion_term_thresh}. The termination conditions on lines \ref{recursion_term_empty}, \ref{recursion_term_dmax} are self-explanatory. A hybrid approach towards the tail end of the recursion is known to perform better\cite{b16}. When the input is small i.e. $|E|$ and $|E'|$ are smaller than a threshold $thr$ we perform a simple sequential intersection count and add it to $t\_cnt$. Although we have not implemented it, its worth mentioning that the OrderedMerge demonstrated in \cite{b17, b18} are alternatives that can yield substantial improvements at the tail end of the recursion.
 
-The first step of the recursion is the parallel count. The parallel count in lines \ref{par_cnt_e} and \ref{par_cnt_e_prime} distributes the input list among $p$ threads. Each thread will process $\frac{n}{p}$ edges. A simple masking operation for the vertices of each edge as shown in \ref{bucket_mask} tells us the bucket to which $q$ will belong
+The first step of the recursion is the parallel count. The parallel count in lines \ref{par_cnt_e} and \ref{par_cnt_e_prime} of algorithm \ref{tri_count} distributes the input list among $p$ threads. Each thread will process $\frac{n}{p}$ edges. A simple masking operation for the vertices of each edge as shown in equation \ref{bucket_mask} tells us the bucket to which $q$ will belong.
 
 \begin{equation}
 (q \gg (2^{depth_{max}-depth}-(d-1)))\land(b-1) \label{bucket_mask}
 \end{equation}
 
-The $b$ counts $E_{cnt}$, $E'_{cnt}$  shown in line \ref{par_cnt_e} will be populated with a time complexity $O(\frac{|E|}{p})$ and $O(\frac{|E'|}{p})$ assuming the $p$ threads work simultaneously. This count is computed in global shared memory and is a matrix of size $p \times b$ since the local count computed by each thread is not summed up yet. For the move to be performed in parallel by $p$ threads in lines \ref{move_e_cnt_scan} and \ref{move_e_prime_cnt_scan}, we need to know the index location in the output buffers $E_{buf}$ and $E'_{buf}$ where the data will be moved.
+The $b$ counts $E_{cnt}$, $E'_{cnt}$  shown in line \ref{par_cnt_e} of algorithm \ref{tri_count} will be populated with a time complexity $O(\frac{|E|}{p})$ and $O(\frac{|E'|}{p})$ assuming the $p$ threads work simultaneously. This count is computed in global shared memory and is a matrix of size $p \times b$ since the local count computed by each thread is not summed up yet. For the move to be performed in parallel by $p$ threads in lines \ref{move_e_cnt_scan} and \ref{move_e_prime_cnt_scan}, we need to know the index location in the output buffers $E_{buf}$ and $E'_{buf}$ where the data will be moved.
 
-The steps in lines \ref{inc_sum_scan_e_cnt}, \ref{inc_sum_scan_e_prime_cnt} perform the task of computing the index locations of the move. The operator $vec$ used in line \ref{inc_sum_scan_e_cnt} is the vectorization operator\cite{b20} that will convert the $p \times b$ matrix into a column vector of size $bp \times 1$. An inclusive scan of this vector gives us the index location boundaries where each thread will perform a move operation for each bucket. The inclusive sum scan has a work complexity of $O(pb\cdot log(pb))$ and a time complexity defined by the Kogge-Stone or Hillis-Steele scan algorithms \cite{b14}. This enables us to perform the move as an EREW(exclusive read, exclusive write) operation in the final step. The $vec^{-1}$ operator simply converts the $bp \times 1$ vector into a $p \times b$ matrix. Note that the $vec$ and $vec^{-1}$ and transpose operations do not have to be performed explicitly if the $E_{cnt}$ is stored in column major order.
+The steps in lines \ref{inc_sum_scan_e_cnt}, \ref{inc_sum_scan_e_prime_cnt} of algorithm \ref{tri_count} perform the task of computing the index locations for the move. The operator $vec$ used in line \ref{inc_sum_scan_e_cnt} is the vectorization operator\cite{b20} that will convert the $p \times b$ matrix into a column vector of size $bp \times 1$. An inclusive scan of this vector gives us the index location boundaries where each thread will perform a move operation for each bucket. The inclusive sum scan has a work complexity of $O(pb\cdot log(pb))$ and a time complexity defined by the Kogge-Stone or Hillis-Steele scan algorithms \cite{b14}. This enables us to perform the move as an EREW(exclusive read, exclusive write) operation in the final step. The $vec^{-1}$ operator simply converts the $bp \times 1$ vector into a $p \times b$ matrix. Note that the $vec$ and $vec^{-1}$ and transpose operations do not have to be performed explicitly if the $E_{cnt}$ is stored in column major order.
 
-The last step before recursion is the data movement. In line \ref{move_e_cnt_scan} the edges in $E$ are moved based on the bucket they belong to the offsets pointed by $E_{cnt\_scan}$ in the output buffer $E_{buf}$. The move is done for $E'$ in line \ref{move_e_prime_cnt_scan}. This stable operation requires just two buffers of size $2\times (|E|+|E'|)$ since the input buffer at $depth$ can be used as the output buffer at recursion $depth+1$ and vice versa.
+The last step before recursion in algorithm \ref{tri_count} is the data movement. In line \ref{move_e_cnt_scan} the edges in $E$ are moved based on the bucket they belong, to the offsets pointed by $E_{cnt\_scan}$ in the output buffer $E_{buf}$. The move is done for $E'$ in line \ref{move_e_prime_cnt_scan}. This stable operation requires just two buffers of size $2\times (|E|+|E'|)$ since the input buffer at $depth$ can be used as the output buffer at recursion $depth+1$ and vice versa.
 
 Intersect\_count will be called recursively for each bucket with the corresponding data as shown in line \ref{recursion_call}. The pointer to a global memory $t\_cnt$ is also passed on. The recursive call is made to all the buckets simultaneously - the loop over all buckets has only been shown for clarity. Similarly, the loops in lines \ref{move_e_cnt_scan}, \ref{move_e_prime_cnt_scan} also run simultaneously.
 
@@ -196,72 +194,85 @@ Intersect\_count will be called recursively for each bucket with the correspondi
 % 7. Recurse for each bucket.
 
 \section{Results and conclusion}
-\subsection{Effect of changing the size of sets $|E|$ and $|E'|$ on the running time}
-To test scaling we demonstrate the effect of changing two major properties of the graph. The number of edges $|E|$ in the graph and the density of the graph which changes as $|E'|$ changes. In the first set of values shown in table \ref{table_result_runtimes} we can see that the increasing the number of edges as well as the density i.e. correspondingly the size of $E'$ does not have a significant impact on the time taken to COMPUTE\_$E'$. The INTERSECTION\_COUNT also takes roughly the same amount of time although it is a bit more unpredictable. The change in the time takes by INTERSECTION\_COUNT can be attributed to the maximum recursion depth at which the recursion terminates. In set 2 the outliers from set 1 have been showcased. This rapid increase in the runtime is caused due to incorrect tuning of kernels. We are currently working on tuning the kernels to give a uniform performance irrespective of input size and density. It should be noted that the number of triangles in the actual graph does not really have an effect on the running time. The running time for dataset Theory-25-81-Bk.tsv at 59.5 s is close to the running time of Theory-25-81-B1k.tsv at 66.16 s. The difference in the number of triangles 0 against 2025 does not reduce the running time.
+\subsection{Experimental setup}
+We used a single node in the CHPC cluster with the NVIDIA Tesla P100 GPU card for our experiments. The Tesla P100 of the Pascal architecture has 16GB of global memory with 56 streaming multiprocessors. Each multiprocessor has 64 cores bringing the total number of cores to 3584. Its single precision performance is rated at 9.3 TFlops. The host node has 2 14-core Intel Broadwell processors E5-2680 v4 running at 2.4 GHz with 256 GB RAM.
+
+\subsection{Effect of changing the size of graph sets $|E|$ and $|E'|$ on the running time}
+To test scaling we demonstrate the effect of changing two major properties of the graph. The number of edges $|E|$ in the graph and the density of the graph which changes as $|E'|$ changes. In the first part of the table \ref{table_result_runtimes} we can see that increasing the number of edges $|E|$ in a graph does not have a significant impact on the time taken to COMPUTE\_$E'$. For example, although the graph Theory-3-4-5-9-B1k.tsv has more edges $13166$ than the graph Theory-25-81-B1k.tsv $8312$, the time taken to construct $E'$ is higher for the graph with a smaller number of edges $|E|$. The time taken to COMPUTE\_$E'$ is directly proportional to the number of candidate edges $|E'|$. Ideally we expect that INTERSECTION\_COUNT would take the same amount of time to compute with larger $|E'|$ as evidence of strong scalability. Practically, if the rate of increase of the the time taken to compute INTERSECTION\_COUNT increases slower than the rate of increase in $|E'|$, we can expect the algorithm to scale. The graphs Theory-3-4-5-B*k.tsv have 3360, 10830 and 5339 candidate edges each. The time to compute their intersection with $E$ is on average 0.079 seconds. In graphs Theory-16-25-B*k.tsv, the number candidate edges goes up by more than 10 times to 87600, 105620 and 88943 compared to Theory-3-4-5-B*k.tsv. But the time to compute INTERSECTION\_COUNT less than doubles at an average of 0.146 seconds. This trend continues as the size of the graphs increases. 
+
+For the graphs Theory-3-4-5-9-B1k.tsv and Theory-25-81-B*k.tsv the time to compute INTERSECTION\_COUNT increases at a significantly higer rate. The disparity in this increase in the time taken by INTERSECTION\_COUNT can be attributed to the maximum recursion depth at which the recursion terminates. For the graph Theory-3-4-5-9-B2k.tsv, 85 recursive calls are made to the INTERSECTION\_COUNT kernel while for the graph Theory-3-4-5-9-B1k.tsv 2647 recursive calls are made. The overhead of invoking a kernel is significantly high resulting in a lower performance. For the graphs Theory-25-81-Bk.tsv, Theory-25-81-B1k.tsv and Theory-25-81-B2k.tsv, the number of recursive calls to INTERSECTION\_COUNT is 6502, 6877 and 6522 respectively. We are still working on the problem of tuning the threshold parameter at which to perform sequential intersection counting which is responsible for this. This paremeter is referred to in algorithm \ref{tri_count} line \ref{recursion_term_thresh} as $thr$. In our current implementation this is fixed at 1024.
+
+It should be noted that the number of triangles in the actual graph does not really have an effect on the running time. The running time for dataset Theory-3-4-5-Bk.tsv at 0.075923 seconds is close to the total running time for Theory-3-4-5-B1k.tsv of 0.083499 seconds. The difference in the number of triangles 0 against 287 does not increase the total running time significantly.
+
 \begin{table*}[ht]
 \centering
- \begin{tabular}{|c || c | c | c || c | c | c |} 
+ \begin{tabular}{|c || c | c | c || c | c | c || c |} 
  \hline
- \multicolumn{4}{|c||}{}&\multicolumn{3}{|c|}{Run time in seconds} \\
+ \multicolumn{4}{|c||}{}&\multicolumn{3}{|c||}{Run time(seconds)}&\multicolumn{1}{|c|}{miniTri run time(seconds)} \\
  \hline
- Dataset & $\#edges |E|$ & size of $|E'|$ & $\#triangles$ & COMPUTE\_$E'$ & INTERSECT\_COUNT & Total \\ [0.5ex] 
- \hline\hline
- Theory-3-4-Bk.tsv & 48 & 96 & 0 & 0.6 & 0.4 & 0.66 \\
+ Dataset & $\#edges |E|$ & size of $|E'|$ & $\#triangles$ & COMPUTE\_$E'$ & INTERSECT\_COUNT & Total & Total \\ [0.5ex] 
  \hline
- Theory-3-4-5-Bk.tsv & 480 & 3360 & 0 & 0.61 & 0.08 & 0.71 \\
+ \multicolumn{8}{c}{Effect of varying size of the graph $|E|$} \\
  \hline
- Theory-16-25-Bk.tsv & 1600 & 87600 & 0 & 0.63 & 0.11 & 0.76 \\
+ Theory-3-4-Bk.tsv & 48 & 96 & 0 & 0.002314 & 0.039135 & 0.041449 & 0.001309 \\
  \hline
- Theory-3-4-5-9-Bk.tsv & 8640 & 319680 & 0 & 0.63 & 0.36 & 1.04 \\
+ Theory-3-4-B1k.tsv & 62 & 225 & 36 & 0.002321 & 0.034009 & 0.03633 & 0.002192 \\
  \hline
- Theory-3-4-B1k.tsv & 62 & 225 & 36 & 0.6 & 0.03 & 0.67 \\
+ Theory-3-4-B2k.tsv & 62 & 138 & 1 & 0.002464 & 0.032879 & 0.035343 & 0.001144 \\
  \hline
- Theory-3-4-5-B1k.tsv & 692 & 10830 & 287 & 0.6 & 0.09 & 0.71 \\
+ Theory-3-4-5-Bk.tsv & 480 & 3360 & 0 & 0.00336 & 0.072563 & 0.075923 & 0.007645 \\
  \hline
- Theory-16-25-B1k.tsv & 1682 & 105620 & 400 & 0.62 & 0.2 & 0.84 \\
+ Theory-3-4-5-B1k.tsv & 692 & 10830 & 287 & 0.004287 & 0.079212 & 0.083499 & 0.013159 \\
  \hline
- Theory-3-4-B2k.tsv & 62 & 138 & 1 & 0.61 & 0.4 & 0.67 \\
+ Theory-3-4-5-B2k.tsv & 692 & 5339 & 7 & 0.003132 & 0.08584 & 0.088972 & 0.006041 \\
  \hline
- Theory-3-4-5-B2k.tsv & 692 & 5339 & 7 & 0.61 & 0.08 & 0.71 \\
+ Theory-16-25-Bk.tsv & 1600 & 87600 & 0 & 0.015061 & 0.119477 & 0.134538 & 0.087803 \\
  \hline
- Theory-16-25-B2k.tsv & 1682 & 88943 & 1 & 0.62 & 0.13 & 0.78 \\
+ Theory-16-25-B1k.tsv & 1682 & 105620 & 400 & 0.017741 & 0.189551 & 0.207292 & 0.07311 \\
  \hline
- Theory-3-4-5-9-B2k.tsv & 13166 & 522804 & 35 & 0.64 & 0.79 & 1.48 \\
- \hline\hline
- 
- Theory-3-4-5-9-B1k.tsv & 13166 & 1223427 & 9107 & 0.73 & 11.99 & 12.76 \\
+ Theory-16-25-B2k.tsv & 1682 & 88943 & 1 & 0.015112 & 0.129343 & 0.144455 & 0.093247 \\
  \hline
- Theory-25-81-Bk.tsv & 8100 & 2154600 & 0 & 0.87 & 58.59 & 59.5 \\
+ Theory-3-4-5-9-Bk.tsv & 8640 & 319680 & 0 & 0.025373 & 0.374776 & 0.400149 & 0.193648 \\
  \hline
- Theory-25-81-B1k.tsv & 8312 & 2378865 & 2025 & 0.9 & 65.220001 & 66.160004 \\
+ Theory-3-4-5-9-B1k.tsv & 13166 & 1223427 & 9107 & 0.11025 & 12.35139 & 12.46164 & 0.76838 \\
  \hline
- Theory-25-81-B2k.tsv & 8312 & 2165433 & 1 & 0.9 & 58.91 & 59.860001 \\
- \hline\hline\hline
+ Theory-3-4-5-9-B2k.tsv & 13166 & 522804 & 35 & 0.02512 & 0.797365 & 0.822485 & 0.32836 \\
+ \hline 
+ Theory-25-81-Bk.tsv & 8100 & 2154600 & 0 & 0.296968 & 58.645665 & 58.942633 & 1.309457 \\
+ \hline
+ Theory-25-81-B1k.tsv & 8312 & 2378865 & 2025 & 0.322544 & 65.225054 & 65.547598 & 1.432732 \\
+ \hline
+ Theory-25-81-B2k.tsv & 8312 & 2165433 & 1 & 0.300018 & 58.99413 & 59.294148 & 1.30335 \\
+ \hline
+ \multicolumn{8}{c}{Effect of changing edge density by keeping $|E'|$ constant  and changing $|E|$ on running time.} \\
+ \hline
+ p2p-Gnutella04\_adj.tsv & 79988 & 518694 & 934 & 0.006057 & 2.112742 & 2.118799 & 0.436732 \\
+ \hline
+ p2p-Gnutella05\_adj.tsv & 63678 & 439066 & 1112 & 0.006267 & 1.968307 & 1.974574 & 0.363753\\
+ \hline
+ p2p-Gnutella06\_adj.tsv & 63050 & 422567 & 1142 & 0.006463 & 1.633593 & 1.640056 & 0.339405 \\
+ \hline
+ p2p-Gnutella08\_adj.tsv & 41554 & 346033 & 2383 & 0.006026 & 1.893056 & 1.899082 & 0.273986 \\
+ \hline
+ p2p-Gnutella09\_adj.tsv & 52026 & 411347 & 2354 & 0.006432 & 1.783205 & 1.789637 & 0.313568 \\
+ \hline
+ p2p-Gnutella25\_adj.tsv & 109410 & 533121 & 806 & 0.006618 & 1.998373 & 2.004991 & 0.486104 \\
+ \hline
+ p2p-Gnutella30\_adj.tsv & 176656 & 923756 & 1590 & 0.006855 & 3.528112 & 3.534967 & 0.80267 \\
+ \hline
+ p2p-Gnutella31\_adj.tsv & 295784 & 1568174 & 2024 & 0.007118 & 5.746889 & 5.754008 & 1.521094 \\
+ \hline
 
- p2p-Gnutella04\_adj.tsv & 79988 & 518694 & 934 & 0.55 & 2.02 & 2.75 \\
- \hline
- p2p-Gnutella05\_adj.tsv & 63678 & 439066 & 1112 & 0.59 & 1.88 & 2.62 \\
- \hline
- p2p-Gnutella06\_adj.tsv & 63050 & 422567 & 1142 & 0.55 & 1.56 & 2.26 \\
- \hline
- p2p-Gnutella08\_adj.tsv & 41554 & 346033 & 2383 & 0.56 & 1.8 & 2.47 \\
- \hline
- p2p-Gnutella09\_adj.tsv & 52026 & 411347 & 2354 & 0.55 & 1.7 & 2.38 \\
- \hline
- p2p-Gnutella25\_adj.tsv & 109410 & 533121 & 806 & 0.55 & 1.98 & 2.76 \\
- \hline\hline
-
- p2p-Gnutella30\_adj.tsv & 176656 & 923756 & 1590 & 0.54 & 3.47 & 4.33 \\
- \hline
- p2p-Gnutella31\_adj.tsv & 295784 & 1568174 & 2024 & 0.54 & 5.66 & 6.95 \\
- \hline
 \end{tabular}
- \caption{Four sets of results. The first set consists of graphs with zero, many and some triangles in that order. The second consists of the outliers from the first set. The third collection represents graphs where the number of edges varies as well as the size of the set $E'$ varies but the running time is roughly constant. The last set contains outliers; the number of edges as well as the size of $E'$ generated doubles causing run time to double and triple.}
+ \caption{Two sets of results. The first set consists of graphs with zero, many and some triangles. We see the effect of changing the size of the graph here. The second set represents graphs where the number of edges $|E|$ varies but the size of the set $E'$ is roughly constant.}
  \label{table_result_runtimes}
 \end{table*}
 
 \subsection{Effect of changing the structure of the graph on the running time}
-The p2p-Gnutella dataset has roughly the same density and connectivity since $|E'|$ is about 450000 while the number of edges range from 40000 to about 100000. This can be seen in the third set of the results. As seen in the total running time the structure and connectivity characteristics do not have a significant effect on the running time which is constant at about 2.5 seconds as seen in table \ref{table_result_runtimes}. The set 4 shows some of the outliers. But we can see that the COMPUTE\_$E'$ function still takes the same time. The minor differences in the INTERSECT\_COUNT can be attributed to the recursion depth and early termination. 
+The p2p-Gnutella dataset has roughly the same density and connectivity for its graphs since $|E'|$ is about 450000 except for p2p-Gnutella30_adj.tsv and p2p-Gnutella31_adj.tsv while the number of edges range from 40000 to about 100000. This can be seen in the second set of the results in table \ref{table_result_runtimes}. The structure and connectivity characteristics of the graph do not have a significant effect on the running time which is constant at about 1.8 seconds as seen in table \ref{table_result_runtimes}. The last 2 graphs in this set p2p-Gnutella30_adj.tsv and p2p-Gnutella31_adj.tsv have a larger size of the candidate set $E'$ resulting in longer running time. Thus, if the number of candidate edges is approximately constant, changing the number of edges does not have a pronounced impact on the total running time. 
+
+\subsection{Comparision with the serial implementation miniTri}
+To provide a baseline comparision we have provided the running times of miniTri for the same graphs. miniTri is a triangle based data analytics tool. It has a linear algebra based triangle enumeration implementation which is discussed in \cite{b22}. The running time of the sequential linear algebra algorithm are lower than the running times of our technique especially for smaller graphs. But as the size of the graphs increase, the run times are more comparable. This points to the incompatibility of our algorithm with the CUDA Dynamic Parallelism extension. The overhead of launching kernels recursively is large especially if the depth of the recursion is significant. As pointed out in \cite{b21} you need to make sure that the recursion results in a 
 
 \subsection{Conclusion}
 The strategy to generate the offsets where we can read from and write processed results can be effectively applied for various parallel tasks. It is scalable as can be seen by the run timings for similar graphs in table \ref{table_result_runtimes}. The recursive radix sort is not performing adequately due to a bug in tuning the kernel. 
@@ -289,5 +300,6 @@ We intend on fixing the issue by batching the stage of generation of $|E'|$ and 
 \bibitem{b19} \url{https://nvlabs.github.io/cub/structcub_1_1_device_radix_sort.html}
 \bibitem{b20} H.D. Macedo, J.N. Oliveira, Typing linear algebra: A biproduct-oriented approach, Science of Computer Programming, Volume 78, Issue 11, 2013, Pages 2160-2191.
 \bibitem{b21} \url{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-dynamic-parallelism}
+\bibitem{b22} M. M. Wolf, J. W. Berry and D. T. Stark, "A task-based linear algebra Building Blocks approach for scalable graph analytics," 2015 IEEE High Performance Extreme Computing Conference (HPEC), Waltham, MA, 2015, pp. 1-6.
 \end{thebibliography}
 \end{document}

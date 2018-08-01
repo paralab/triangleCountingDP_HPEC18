@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2017.8.23)  25 MAY 2018 23:51
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2017.8.23)  31 JUL 2018 23:24
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -956,21 +956,25 @@ Package amsmath Warning: Foreign command \atopwithdelims;
 [3]
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 197.
+(hyperref)                removing `math shift' on input line 200.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 197.
+(hyperref)                removing `math shift' on input line 200.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 197.
+(hyperref)                removing `math shift' on input line 200.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 197.
+(hyperref)                removing `math shift' on input line 200.
 
 [4]
+Overfull \hbox (28.09947pt too wide) in paragraph at lines 209--267
+ [][] 
+ []
+
 Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ú in font ptmr7t!
@@ -1015,6 +1019,7 @@ Missing character: There is no ù in font ptmr7t!
 Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ì in font ptmr7t!
+[5]
 Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ú in font ptmr7t!
@@ -1050,7 +1055,6 @@ Missing character: There is no ù in font ptmr7t!
 Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ì in font ptmr7t!
- [5]
 Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ú in font ptmr7t!
@@ -1070,7 +1074,7 @@ Missing character: There is no ‚ in font ptmr7t!
 Missing character: There is no Ä in font ptmr7t!
 Missing character: There is no ì in font ptmr7t!
 
-Underfull \hbox (badness 10000) in paragraph at lines 289--290
+Underfull \hbox (badness 10000) in paragraph at lines 301--302
 [][]$\OT1/ptm/m/n/8 https : / / docs . nvidia . com / cuda / cuda-[]c-[]program
 ming-[]guide / index . html #
  []
@@ -1086,26 +1090,24 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 291.
-[6
-
-]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 291.
+[6]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 304.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 304.
  (./conference_041818.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 291.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 291.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 304.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 304.
 Package rerunfilecheck Info: File `conference_041818.out' has not changed.
-(rerunfilecheck)             Checksum: C3ABDB41368CB65FC5222F3E2A74DE43;1342.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 291.
+(rerunfilecheck)             Checksum: 8003FCD99862C6E61C7B5FC6E28B1C58;1516.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 304.
  ) 
 Here is how much of TeX's memory you used:
- 27160 strings out of 494953
- 643345 string characters out of 6180977
- 807559 words of memory out of 5000000
- 29952 multiletter control sequences out of 15000+600000
+ 27166 strings out of 494953
+ 643418 string characters out of 6180977
+ 803386 words of memory out of 5000000
+ 29955 multiletter control sequences out of 15000+600000
  45491 words of font info for 95 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 55i,11n,77p,1930b,743s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 55i,10n,77p,1930b,743s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/share/texliv
 e/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist
@@ -1128,10 +1130,10 @@ m/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9
 e/texlive/texmf-dist/fonts/type1/urw/times/utmbi8a.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/ty
 pe1/urw/times/utmri8a.pfb>
-Output written on conference_041818.pdf (6 pages, 264043 bytes).
+Output written on conference_041818.pdf (6 pages, 268486 bytes).
 PDF statistics:
- 299 PDF objects out of 1000 (max. 8388607)
- 265 compressed objects within 3 object streams
- 50 named destinations out of 1000 (max. 500000)
- 141 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 324 PDF objects out of 1000 (max. 8388607)
+ 290 compressed objects within 3 object streams
+ 53 named destinations out of 1000 (max. 500000)
+ 157 words of extra memory for PDF output out of 10000 (max. 10000000)
 
